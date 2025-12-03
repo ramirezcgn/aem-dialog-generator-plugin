@@ -1,0 +1,46 @@
+{
+  "name": "aem-dialog-generator-plugin",
+  "version": "1.0.0",
+  "description": "Webpack plugin that automatically generates AEM component dialog XML files from JSON configurations",
+  "main": "aem-dialog-generator-plugin.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "keywords": [
+    "aem",
+    "adobe-experience-manager",
+    "webpack",
+    "webpack-plugin",
+    "dialog",
+    "granite-ui",
+    "touch-ui",
+    "component-dialog",
+    "xml-generator"
+  ],
+  "author": "ramirezcgn",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ramirezcgn/aem-dialog-generator-plugin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ramirezcgn/aem-dialog-generator-plugin/issues"
+  },
+  "homepage": "https://github.com/ramirezcgn/aem-dialog-generator-plugin#readme",
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "peerDependencies": {
+    "webpack": "^4.0.0 || ^5.0.0"
+  },
+  "files": [
+    "aem-dialog-generator-plugin.js",
+    "README.md",
+    "LICENSE"
+  ]
+}

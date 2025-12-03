@@ -1,0 +1,10 @@
+# Files excluded from npm package
+node_modules/
+coverage/
+*.log
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

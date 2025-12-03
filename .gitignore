@@ -1,0 +1,21 @@
+# Ignore environment variable files
+.env
+
+# Ignore build output
+dist/
+build/
+coverage/
+
+# Dependency directories
+node_modules/
+
+# Log files
+*.log
+.DS_Store
+
+# Editor directories
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
