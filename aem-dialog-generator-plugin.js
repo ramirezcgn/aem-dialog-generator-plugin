@@ -43,7 +43,9 @@ class AemDialogGeneratorPlugin {
 
   apply(compiler) {
     const pluginName = 'AemDialogGeneratorPlugin';
+    const { sourceDir, dialogFileName } = this.options;
 
+    // Generate dialogs on initial compilation and watch mode
     compiler.hooks.emit.tapAsync(pluginName, (compilation, callback) => {
       this.log('Starting generation of AEM dialogs...');
 
@@ -55,6 +57,32 @@ class AemDialogGeneratorPlugin {
       }
 
       callback();
+    });
+
+    // Watch for changes in dialog.json files
+    compiler.hooks.afterCompile.tap(pluginName, (compilation) => {
+      if (!fs.existsSync(sourceDir)) {
+        return;
+      }
+
+      // Add all dialog.json files as dependencies so webpack watches them
+      const componentFolders = fs.readdirSync(sourceDir).filter((item) => {
+        const itemPath = path.join(sourceDir, item);
+        return fs.statSync(itemPath).isDirectory();
+      });
+
+      for (const componentName of componentFolders) {
+        const dialogJsonPath = path.join(
+          sourceDir,
+          componentName,
+          dialogFileName
+        );
+
+        if (fs.existsSync(dialogJsonPath)) {
+          // Add the file to webpack's file dependencies
+          compilation.fileDependencies.add(dialogJsonPath);
+        }
+      }
     });
   }
 
