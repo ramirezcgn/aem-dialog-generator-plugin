@@ -848,7 +848,7 @@ class AemDialogGeneratorPlugin {
 
   sanitizeNodeName(name) {
     // Remove ./ from the start and special characters to use as node name
-    return name.replaceAll(/^\.\//, '').replaceAll(/[^a-zA-Z0-9_-]/g, '_');
+    return name.replace(/^\.\//, '').replaceAll(/[^a-zA-Z0-9_-]/g, '_');
   }
 
   escapeXml(text) {
