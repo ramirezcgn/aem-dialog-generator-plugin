@@ -1,9 +1,8 @@
 const AemDialogGeneratorPlugin = require('../aem-dialog-generator-plugin');
-const path = require('path');
-const fs = require('fs');
+const fs = require('node:fs');
 
 // Mock fs module
-jest.mock('fs');
+jest.mock('node:fs');
 
 describe('AemDialogGeneratorPlugin', () => {
   let plugin;
@@ -12,26 +11,34 @@ describe('AemDialogGeneratorPlugin', () => {
   beforeEach(() => {
     // Clear all mocks before each test
     jest.clearAllMocks();
-    
+
+    // Setup default mock implementations
+    fs.existsSync = jest.fn();
+    fs.readdirSync = jest.fn();
+    fs.statSync = jest.fn();
+    fs.readFileSync = jest.fn();
+    fs.mkdirSync = jest.fn();
+    fs.writeFileSync = jest.fn();
+
     // Default options
     mockOptions = {
       sourceDir: '/test/source',
       targetDir: '/test/target',
       appName: 'testapp',
-      verbose: false
+      verbose: false,
     };
   });
 
   describe('Constructor', () => {
     test('should initialize with default options', () => {
       plugin = new AemDialogGeneratorPlugin();
-      
+
       expect(plugin.I).toEqual({
         F: 11,
         FA: 12,
         FN: 12,
         FNI: 13,
-        MI: 14
+        MI: 14,
       });
       expect(plugin.options.dialogFileName).toBe('dialog.json');
       expect(plugin.options.useFolderStructure).toBe(true);
@@ -40,18 +47,18 @@ describe('AemDialogGeneratorPlugin', () => {
 
     test('should initialize with custom options', () => {
       plugin = new AemDialogGeneratorPlugin(mockOptions);
-      
+
       expect(plugin.options.sourceDir).toBe('/test/source');
       expect(plugin.options.targetDir).toBe('/test/target');
       expect(plugin.options.appName).toBe('testapp');
     });
 
     test('should respect useFolderStructure option', () => {
-      plugin = new AemDialogGeneratorPlugin({ 
-        ...mockOptions, 
-        useFolderStructure: false 
+      plugin = new AemDialogGeneratorPlugin({
+        ...mockOptions,
+        useFolderStructure: false,
       });
-      
+
       expect(plugin.options.useFolderStructure).toBe(false);
     });
   });
@@ -67,7 +74,9 @@ describe('AemDialogGeneratorPlugin', () => {
       });
 
       test('should replace special characters with underscore', () => {
-        expect(plugin.sanitizeNodeName('./my-field:name')).toBe('my-field_name');
+        expect(plugin.sanitizeNodeName('./my-field:name')).toBe(
+          'my-field_name'
+        );
         expect(plugin.sanitizeNodeName('./field@name')).toBe('field_name');
       });
 
@@ -79,7 +88,9 @@ describe('AemDialogGeneratorPlugin', () => {
     describe('escapeXml', () => {
       test('should escape XML special characters', () => {
         expect(plugin.escapeXml('Test & Co')).toBe('Test &amp; Co');
-        expect(plugin.escapeXml('<div>Test</div>')).toBe('&lt;div&gt;Test&lt;/div&gt;');
+        expect(plugin.escapeXml('<div>Test</div>')).toBe(
+          '&lt;div&gt;Test&lt;/div&gt;'
+        );
         expect(plugin.escapeXml('Say "Hello"')).toBe('Say &quot;Hello&quot;');
         expect(plugin.escapeXml("It's")).toBe('It&apos;s');
       });
@@ -100,38 +111,62 @@ describe('AemDialogGeneratorPlugin', () => {
 
     describe('generateAttributeValue', () => {
       test('should format boolean values', () => {
-        expect(plugin.generateAttributeValue('required', true)).toBe('required="{Boolean}true"');
-        expect(plugin.generateAttributeValue('enabled', false)).toBe('enabled="{Boolean}false"');
+        expect(plugin.generateAttributeValue('required', true)).toBe(
+          'required="{Boolean}true"'
+        );
+        expect(plugin.generateAttributeValue('enabled', false)).toBe(
+          'enabled="{Boolean}false"'
+        );
       });
 
       test('should format number values', () => {
-        expect(plugin.generateAttributeValue('count', 42)).toBe('count="{Long}42"');
+        expect(plugin.generateAttributeValue('count', 42)).toBe(
+          'count="{Long}42"'
+        );
       });
 
       test('should format array values', () => {
-        expect(plugin.generateAttributeValue('items', ['a', 'b', 'c'])).toBe('items="[a,b,c]"');
+        expect(plugin.generateAttributeValue('items', ['a', 'b', 'c'])).toBe(
+          'items="[a,b,c]"'
+        );
       });
 
       test('should format string values', () => {
-        expect(plugin.generateAttributeValue('name', 'test')).toBe('name="test"');
+        expect(plugin.generateAttributeValue('name', 'test')).toBe(
+          'name="test"'
+        );
       });
 
       test('should escape XML in string values', () => {
-        expect(plugin.generateAttributeValue('label', 'Test & Co')).toBe('label="Test &amp; Co"');
+        expect(plugin.generateAttributeValue('label', 'Test & Co')).toBe(
+          'label="Test &amp; Co"'
+        );
       });
     });
 
     describe('getResourceType', () => {
       test('should return correct resource types', () => {
-        expect(plugin.getResourceType('textfield')).toBe('granite/ui/components/coral/foundation/form/textfield');
-        expect(plugin.getResourceType('textarea')).toBe('granite/ui/components/coral/foundation/form/textarea');
-        expect(plugin.getResourceType('select')).toBe('granite/ui/components/coral/foundation/form/select');
-        expect(plugin.getResourceType('multifield')).toBe('granite/ui/components/coral/foundation/form/multifield');
-        expect(plugin.getResourceType('rte')).toBe('cq/gui/components/authoring/dialog/richtext');
+        expect(plugin.getResourceType('textfield')).toBe(
+          'granite/ui/components/coral/foundation/form/textfield'
+        );
+        expect(plugin.getResourceType('textarea')).toBe(
+          'granite/ui/components/coral/foundation/form/textarea'
+        );
+        expect(plugin.getResourceType('select')).toBe(
+          'granite/ui/components/coral/foundation/form/select'
+        );
+        expect(plugin.getResourceType('multifield')).toBe(
+          'granite/ui/components/coral/foundation/form/multifield'
+        );
+        expect(plugin.getResourceType('rte')).toBe(
+          'cq/gui/components/authoring/dialog/richtext'
+        );
       });
 
       test('should fallback to textfield for unknown types', () => {
-        expect(plugin.getResourceType('unknown')).toBe('granite/ui/components/coral/foundation/form/textfield');
+        expect(plugin.getResourceType('unknown')).toBe(
+          'granite/ui/components/coral/foundation/form/textfield'
+        );
       });
     });
   });
@@ -147,12 +182,14 @@ describe('AemDialogGeneratorPlugin', () => {
           type: 'textfield',
           name: './title',
           label: 'Title',
-          required: true
+          required: true,
         };
-        
+
         const xml = plugin.generateField(field);
-        
-        expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/form/textfield"');
+
+        expect(xml).toContain(
+          'sling:resourceType="granite/ui/components/coral/foundation/form/textfield"'
+        );
         expect(xml).toContain('fieldLabel="Title"');
         expect(xml).toContain('name="./title"');
         expect(xml).toContain('required="{Boolean}true"');
@@ -165,42 +202,49 @@ describe('AemDialogGeneratorPlugin', () => {
           label: 'Type',
           options: [
             { value: 'type1', text: 'Type 1' },
-            { value: 'type2', text: 'Type 2' }
-          ]
+            { value: 'type2', text: 'Type 2' },
+          ],
         };
-        
+
         const xml = plugin.generateField(field);
-        
-        expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/form/select"');
+
+        expect(xml).toContain(
+          'sling:resourceType="granite/ui/components/coral/foundation/form/select"'
+        );
         expect(xml).toContain('<items jcr:primaryType="nt:unstructured">');
         expect(xml).toContain('value="type1"');
         expect(xml).toContain('text="Type 1"');
       });
 
       test('should delegate to generateMultifield for multifield type', () => {
-        const field = { type: 'multifield', name: './items', label: 'Items', fields: [] };
+        const field = {
+          type: 'multifield',
+          name: './items',
+          label: 'Items',
+          fields: [],
+        };
         const spy = jest.spyOn(plugin, 'generateMultifield');
-        
+
         plugin.generateField(field);
-        
+
         expect(spy).toHaveBeenCalledWith(field);
       });
 
       test('should delegate to generateFieldset for fieldset type', () => {
         const field = { type: 'fieldset', label: 'Group', fields: [] };
         const spy = jest.spyOn(plugin, 'generateFieldset');
-        
+
         plugin.generateField(field);
-        
+
         expect(spy).toHaveBeenCalledWith(field);
       });
 
       test('should delegate to generateRTE for rte type', () => {
         const field = { type: 'rte', name: './text', label: 'Text' };
         const spy = jest.spyOn(plugin, 'generateRTE');
-        
+
         plugin.generateField(field);
-        
+
         expect(spy).toHaveBeenCalledWith(field);
       });
     });
@@ -211,13 +255,43 @@ describe('AemDialogGeneratorPlugin', () => {
           label: 'SEO Settings',
           fields: [
             { type: 'textfield', name: './metaTitle', label: 'Meta Title' },
-            { type: 'textarea', name: './metaDescription', label: 'Meta Description' }
-          ]
+            {
+              type: 'textarea',
+              name: './metaDescription',
+              label: 'Meta Description',
+            },
+          ],
         };
-        
+
         const xml = plugin.generateFieldset(fieldset);
-        
-        expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/form/fieldset"');
+
+        expect(xml).toContain(
+          'sling:resourceType="granite/ui/components/coral/foundation/form/fieldset"'
+        );
+        expect(xml).toContain('jcr:title="SEO Settings"');
+        expect(xml).toContain('<items jcr:primaryType="nt:unstructured">');
+        expect(xml).toContain('fieldLabel="Meta Title"');
+        expect(xml).toContain('fieldLabel="Meta Description"');
+      });
+
+      test('should generate fieldset with nested items', () => {
+        const fieldset = {
+          label: 'SEO Settings',
+          items: [
+            { type: 'textfield', name: './metaTitle', label: 'Meta Title' },
+            {
+              type: 'textarea',
+              name: './metaDescription',
+              label: 'Meta Description',
+            },
+          ],
+        };
+
+        const xml = plugin.generateFieldset(fieldset);
+
+        expect(xml).toContain(
+          'sling:resourceType="granite/ui/components/coral/foundation/form/fieldset"'
+        );
         expect(xml).toContain('jcr:title="SEO Settings"');
         expect(xml).toContain('<items jcr:primaryType="nt:unstructured">');
         expect(xml).toContain('fieldLabel="Meta Title"');
@@ -226,37 +300,100 @@ describe('AemDialogGeneratorPlugin', () => {
     });
 
     describe('generateMultifield', () => {
-      test('should generate simple multifield', () => {
+      test('should generate simple multifield with fields', () => {
         const multifield = {
           name: './tags',
           label: 'Tags',
-          fields: [
-            { type: 'textfield', name: './tag', label: 'Tag' }
-          ]
+          fields: [{ type: 'textfield', name: './tag', label: 'Tag' }],
         };
-        
+
         const xml = plugin.generateMultifield(multifield);
-        
-        expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/form/multifield"');
+
+        expect(xml).toContain(
+          'sling:resourceType="granite/ui/components/coral/foundation/form/multifield"'
+        );
         expect(xml).toContain('fieldLabel="Tags"');
         expect(xml).not.toContain('composite="{Boolean}true"');
       });
 
-      test('should generate composite multifield', () => {
+      test('should generate simple multifield with items', () => {
+        const multifield = {
+          name: './tags',
+          label: 'Tags',
+          items: [{ type: 'textfield', name: './tag', label: 'Tag' }],
+        };
+
+        const xml = plugin.generateMultifield(multifield);
+
+        expect(xml).toContain(
+          'sling:resourceType="granite/ui/components/coral/foundation/form/multifield"'
+        );
+        expect(xml).toContain('fieldLabel="Tags"');
+        expect(xml).not.toContain('composite="{Boolean}true"');
+        expect(xml).not.toContain('items="');
+      });
+
+      test('should generate composite multifield with fields', () => {
         const multifield = {
           name: './slides',
           label: 'Slides',
           composite: true,
           fields: [
             { type: 'textfield', name: './title', label: 'Title' },
-            { type: 'textarea', name: './description', label: 'Description' }
-          ]
+            { type: 'textarea', name: './description', label: 'Description' },
+          ],
         };
-        
+
         const xml = plugin.generateMultifield(multifield);
-        
+
         expect(xml).toContain('composite="{Boolean}true"');
-        expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/container"');
+        expect(xml).toContain(
+          'sling:resourceType="granite/ui/components/coral/foundation/container"'
+        );
+      });
+
+      test('should generate composite multifield with items', () => {
+        const multifield = {
+          name: './menuItems',
+          label: 'Menu Items',
+          composite: true,
+          items: [
+            { type: 'textfield', name: './linkText', label: 'Link Text' },
+            {
+              type: 'pathfield',
+              name: './link',
+              label: 'Link',
+              rootPath: '/content',
+            },
+          ],
+        };
+
+        const xml = plugin.generateMultifield(multifield);
+
+        expect(xml).toContain('composite="{Boolean}true"');
+        expect(xml).toContain(
+          'sling:resourceType="granite/ui/components/coral/foundation/container"'
+        );
+        expect(xml).toContain('fieldLabel="Link Text"');
+        expect(xml).toContain('fieldLabel="Link"');
+        expect(xml).not.toContain('items="');
+      });
+
+      test('should not add items array as XML attribute', () => {
+        const multifield = {
+          name: './items',
+          label: 'Items',
+          composite: true,
+          items: [
+            { type: 'textfield', name: './text', label: 'Text' },
+            { type: 'textfield', name: './value', label: 'Value' },
+          ],
+        };
+
+        const xml = plugin.generateMultifield(multifield);
+
+        expect(xml).not.toContain('items="[');
+        expect(xml).not.toContain('[object Object]');
       });
     });
 
@@ -265,12 +402,14 @@ describe('AemDialogGeneratorPlugin', () => {
         const rte = {
           name: './text',
           label: 'Content',
-          features: ['*']
+          features: ['*'],
         };
-        
+
         const xml = plugin.generateRTE(rte);
-        
-        expect(xml).toContain('sling:resourceType="cq/gui/components/authoring/dialog/richtext"');
+
+        expect(xml).toContain(
+          'sling:resourceType="cq/gui/components/authoring/dialog/richtext"'
+        );
         expect(xml).toContain('<rtePlugins jcr:primaryType="nt:unstructured">');
         expect(xml).toContain('<format');
         expect(xml).toContain('features="bold,italic,underline"');
@@ -280,12 +419,14 @@ describe('AemDialogGeneratorPlugin', () => {
         const rte = {
           name: './text',
           label: 'Content',
-          features: ['bold', 'italic']
+          features: ['bold', 'italic'],
         };
-        
+
         const xml = plugin.generateRTE(rte);
-        
-        expect(xml).toContain('sling:resourceType="cq/gui/components/authoring/dialog/richtext"');
+
+        expect(xml).toContain(
+          'sling:resourceType="cq/gui/components/authoring/dialog/richtext"'
+        );
         expect(xml).toContain('<rtePlugins jcr:primaryType="nt:unstructured">');
       });
     });
@@ -295,13 +436,11 @@ describe('AemDialogGeneratorPlugin', () => {
         const config = {
           title: 'Test Component',
           layout: 'simple',
-          fields: [
-            { type: 'textfield', name: './title', label: 'Title' }
-          ]
+          fields: [{ type: 'textfield', name: './title', label: 'Title' }],
         };
-        
+
         const xml = plugin.generateDialogXml(config, 'test');
-        
+
         expect(xml).toContain('<?xml version="1.0" encoding="UTF-8"?>');
         expect(xml).toContain('jcr:title="Test Component"');
         expect(xml).toContain('granite:class="cmp-test__editor"');
@@ -314,22 +453,21 @@ describe('AemDialogGeneratorPlugin', () => {
           tabs: [
             {
               title: 'Content',
-              fields: [
-                { type: 'textfield', name: './title', label: 'Title' }
-              ]
+              fields: [{ type: 'textfield', name: './title', label: 'Title' }],
             },
             {
               title: 'Styling',
-              fields: [
-                { type: 'colorfield', name: './color', label: 'Color' }
-              ]
-            }
-          ]
+              fields: [{ type: 'colorfield', name: './color', label: 'Color' }],
+            },
+          ],
         };
-        
+
         const xml = plugin.generateDialogXml(config, 'test');
-        
-        expect(xml).toContain('<tabs jcr:primaryType="nt:unstructured">');
+
+        expect(xml).toContain('<tabs');
+        expect(xml).toContain(
+          'sling:resourceType="granite/ui/components/coral/foundation/tabs"'
+        );
         expect(xml).toContain('jcr:title="Content"');
         expect(xml).toContain('jcr:title="Styling"');
       });
@@ -339,13 +477,24 @@ describe('AemDialogGeneratorPlugin', () => {
       test('should generate tab with fields', () => {
         const tab = {
           title: 'Properties',
-          fields: [
-            { type: 'textfield', name: './title', label: 'Title' }
-          ]
+          fields: [{ type: 'textfield', name: './title', label: 'Title' }],
         };
-        
+
         const xml = plugin.generateTab(tab, 0);
-        
+
+        expect(xml).toContain('jcr:title="Properties"');
+        expect(xml).toContain('sling:orderBefore="cq:styles"'); // First tab
+        expect(xml).toContain('fieldLabel="Title"');
+      });
+
+      test('should generate tab with items', () => {
+        const tab = {
+          title: 'Properties',
+          items: [{ type: 'textfield', name: './title', label: 'Title' }],
+        };
+
+        const xml = plugin.generateTab(tab, 0);
+
         expect(xml).toContain('jcr:title="Properties"');
         expect(xml).toContain('sling:orderBefore="cq:styles"'); // First tab
         expect(xml).toContain('fieldLabel="Title"');
@@ -354,11 +503,11 @@ describe('AemDialogGeneratorPlugin', () => {
       test('should not add orderBefore for non-first tabs', () => {
         const tab = {
           title: 'Styling',
-          fields: []
+          fields: [],
         };
-        
+
         const xml = plugin.generateTab(tab, 1);
-        
+
         expect(xml).not.toContain('sling:orderBefore');
       });
     });
@@ -372,8 +521,10 @@ describe('AemDialogGeneratorPlugin', () => {
     describe('generateDialogs', () => {
       test('should throw error if source directory does not exist', () => {
         fs.existsSync.mockReturnValue(false);
-        
-        expect(() => plugin.generateDialogs()).toThrow('Source folder does not exist');
+
+        expect(() => plugin.generateDialogs()).toThrow(
+          'Source folder does not exist'
+        );
       });
 
       test('should process components with dialog.json', () => {
@@ -383,76 +534,86 @@ describe('AemDialogGeneratorPlugin', () => {
           if (path.includes('dialog.json')) return true;
           return false;
         });
-        
+
         fs.readdirSync.mockReturnValue(['button', 'hero']);
         fs.statSync.mockReturnValue({ isDirectory: () => true });
-        fs.readFileSync.mockReturnValue(JSON.stringify({
-          title: 'Test Component',
-          layout: 'simple',
-          fields: [{ type: 'textfield', name: './title', label: 'Title' }]
-        }));
+        fs.readFileSync.mockReturnValue(
+          JSON.stringify({
+            title: 'Test Component',
+            layout: 'simple',
+            fields: [{ type: 'textfield', name: './title', label: 'Title' }],
+          })
+        );
         fs.mkdirSync.mockImplementation(() => {});
         fs.writeFileSync.mockImplementation(() => {});
-        
+
         plugin.generateDialogs();
-        
+
         expect(fs.writeFileSync).toHaveBeenCalled();
       });
 
       test('should create folder structure when useFolderStructure is true', () => {
-        plugin = new AemDialogGeneratorPlugin({ 
-          ...mockOptions, 
-          useFolderStructure: true 
+        plugin = new AemDialogGeneratorPlugin({
+          ...mockOptions,
+          useFolderStructure: true,
         });
-        
+
         fs.existsSync.mockImplementation((path) => {
           if (path === mockOptions.sourceDir) return true;
           if (path.includes('dialog.json')) return true;
           return false;
         });
-        
+
         fs.readdirSync.mockReturnValue(['button']);
         fs.statSync.mockReturnValue({ isDirectory: () => true });
-        fs.readFileSync.mockReturnValue(JSON.stringify({
-          title: 'Button',
-          layout: 'simple',
-          fields: []
-        }));
+        fs.readFileSync.mockReturnValue(
+          JSON.stringify({
+            title: 'Button',
+            layout: 'simple',
+            fields: [],
+          })
+        );
         fs.mkdirSync.mockImplementation(() => {});
         fs.writeFileSync.mockImplementation(() => {});
-        
+
         plugin.generateDialogs();
-        
+
         const mkdirCalls = fs.mkdirSync.mock.calls;
-        expect(mkdirCalls.some(call => call[0].includes('_cq_dialog'))).toBe(true);
+        expect(mkdirCalls.some((call) => call[0].includes('_cq_dialog'))).toBe(
+          true
+        );
       });
 
       test('should create single file when useFolderStructure is false', () => {
-        plugin = new AemDialogGeneratorPlugin({ 
-          ...mockOptions, 
-          useFolderStructure: false 
+        plugin = new AemDialogGeneratorPlugin({
+          ...mockOptions,
+          useFolderStructure: false,
         });
-        
+
         fs.existsSync.mockImplementation((path) => {
           if (path === mockOptions.sourceDir) return true;
           if (path.includes('dialog.json')) return true;
           return false;
         });
-        
+
         fs.readdirSync.mockReturnValue(['button']);
         fs.statSync.mockReturnValue({ isDirectory: () => true });
-        fs.readFileSync.mockReturnValue(JSON.stringify({
-          title: 'Button',
-          layout: 'simple',
-          fields: []
-        }));
+        fs.readFileSync.mockReturnValue(
+          JSON.stringify({
+            title: 'Button',
+            layout: 'simple',
+            fields: [],
+          })
+        );
         fs.mkdirSync.mockImplementation(() => {});
         fs.writeFileSync.mockImplementation(() => {});
-        
+
         plugin.generateDialogs();
-        
+
         const writeCalls = fs.writeFileSync.mock.calls;
-        expect(writeCalls.some(call => call[0].endsWith('_cq_dialog.xml'))).toBe(true);
+        expect(
+          writeCalls.some((call) => call[0].endsWith('_cq_dialog.xml'))
+        ).toBe(true);
       });
     });
   });
@@ -460,18 +621,25 @@ describe('AemDialogGeneratorPlugin', () => {
   describe('Webpack Integration', () => {
     test('should register with webpack compiler', () => {
       plugin = new AemDialogGeneratorPlugin(mockOptions);
-      
+
       const mockCompiler = {
         hooks: {
           emit: {
-            tapAsync: jest.fn()
-          }
-        }
+            tapAsync: jest.fn(),
+          },
+          afterCompile: {
+            tap: jest.fn(),
+          },
+        },
       };
-      
+
       plugin.apply(mockCompiler);
-      
+
       expect(mockCompiler.hooks.emit.tapAsync).toHaveBeenCalledWith(
+        'AemDialogGeneratorPlugin',
+        expect.any(Function)
+      );
+      expect(mockCompiler.hooks.afterCompile.tap).toHaveBeenCalledWith(
         'AemDialogGeneratorPlugin',
         expect.any(Function)
       );
@@ -479,7 +647,7 @@ describe('AemDialogGeneratorPlugin', () => {
 
     test('should handle errors during generation', () => {
       plugin = new AemDialogGeneratorPlugin(mockOptions);
-      
+
       const mockCompiler = {
         hooks: {
           emit: {
@@ -488,16 +656,19 @@ describe('AemDialogGeneratorPlugin', () => {
               const mockCompilation = { errors: [] };
               const done = jest.fn();
               callback(mockCompilation, done);
-            })
-          }
-        }
+            }),
+          },
+          afterCompile: {
+            tap: jest.fn(),
+          },
+        },
       };
-      
+
       // Mock generateDialogs to throw error
       fs.existsSync.mockReturnValue(false);
-      
+
       plugin.apply(mockCompiler);
-      
+
       // The error should be caught and added to compilation.errors
     });
   });
@@ -506,22 +677,24 @@ describe('AemDialogGeneratorPlugin', () => {
     test('should log when verbose is true', () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       plugin = new AemDialogGeneratorPlugin({ ...mockOptions, verbose: true });
-      
+
       plugin.log('Test message');
-      
-      expect(consoleSpy).toHaveBeenCalledWith('[AemDialogGeneratorPlugin] Test message');
-      
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[AemDialogGeneratorPlugin] Test message'
+      );
+
       consoleSpy.mockRestore();
     });
 
     test('should not log when verbose is false', () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       plugin = new AemDialogGeneratorPlugin({ ...mockOptions, verbose: false });
-      
+
       plugin.log('Test message');
-      
+
       expect(consoleSpy).not.toHaveBeenCalled();
-      
+
       consoleSpy.mockRestore();
     });
   });

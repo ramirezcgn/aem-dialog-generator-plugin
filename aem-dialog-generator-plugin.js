@@ -681,9 +681,13 @@ class AemDialogGeneratorPlugin {
       description,
       required = false,
       fields = [],
+      items = [],
       composite = false,
       ...otherProps
     } = field;
+
+    // Use items if fields is empty
+    const multifieldItems = fields.length > 0 ? fields : items;
 
     const fieldName = name || './items';
     const nodeName = this.sanitizeNodeName(fieldName);
@@ -712,9 +716,9 @@ class AemDialogGeneratorPlugin {
       xml += this.line(this.I.FA, 'composite="{Boolean}true"');
     }
 
-    // Agregar propiedades adicionales
+    // Agregar propiedades adicionales (excluyendo items y fields que son arrays)
     for (const [key, value] of Object.entries(otherProps)) {
-      if (key !== 'type' && key !== 'fields') {
+      if (key !== 'type' && key !== 'fields' && key !== 'items') {
         const attr = this.generateAttributeValue(key, value);
         xml += this.line(this.I.FA, attr);
       }
@@ -724,7 +728,7 @@ class AemDialogGeneratorPlugin {
     xml += this.line(this.I.FN, '<field');
     xml += this.line(this.I.FNI, 'jcr:primaryType="nt:unstructured"');
 
-    if (composite && fields.length > 0) {
+    if (composite && multifieldItems.length > 0) {
       // Composite multifield: multiple grouped fields
       xml += this.line(
         this.I.FNI,
@@ -733,15 +737,15 @@ class AemDialogGeneratorPlugin {
       xml += this.line(this.I.FNI, `name="${fieldName}">`);
       xml += this.line(this.I.FNI, '<items jcr:primaryType="nt:unstructured">');
 
-      for (const subField of fields) {
+      for (const subField of multifieldItems) {
         xml += this.generateMultifieldItem(subField);
       }
 
       xml += this.line(this.I.FNI, '</items>');
       xml += this.line(this.I.FN, '</field>');
-    } else if (fields.length > 0) {
+    } else if (multifieldItems.length > 0) {
       // Simple multifield: single repeated field
-      const singleField = fields[0];
+      const singleField = multifieldItems[0];
       const subResourceType = this.getResourceType(
         singleField.type || 'textfield'
       );
