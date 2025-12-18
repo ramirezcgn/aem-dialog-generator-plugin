@@ -807,6 +807,11 @@ class AemDialogGeneratorPlugin {
       ...otherProps
     } = field;
 
+    // Handle fieldset specially
+    if (type === 'fieldset') {
+      return this.generateMultifieldFieldset(field);
+    }
+
     const resourceType = this.getResourceType(type);
     const fieldName = name || `./field_${Date.now()}`;
     const nodeName = this.sanitizeNodeName(fieldName);
@@ -840,7 +845,7 @@ class AemDialogGeneratorPlugin {
     }
 
     for (const [key, value] of Object.entries(otherProps)) {
-      if (key !== 'options') {
+      if (key !== 'options' && key !== 'fields' && key !== 'items') {
         xml += this.line(
           this.I.MI + 1,
           this.generateAttributeValue(key, value)
@@ -871,6 +876,145 @@ class AemDialogGeneratorPlugin {
 
       xml += this.line(this.I.MI + 1, '</items>');
       xml += this.line(this.I.MI, `</${nodeName}>`);
+    } else {
+      xml = xml.trimEnd() + '/>\n';
+    }
+
+    return xml;
+  }
+
+  generateMultifieldFieldset(field) {
+    const {
+      name,
+      label,
+      description,
+      fields = [],
+      items = [],
+      ...otherProps
+    } = field;
+
+    const nodeName = name
+      ? this.sanitizeNodeName(name)
+      : `fieldset_${Date.now()}`;
+    const resourceType = this.getResourceType('fieldset');
+    const fieldsetFields = fields.length > 0 ? fields : items;
+
+    let xml = this.line(this.I.MI, `<${nodeName}`);
+    xml += this.line(this.I.MI + 1, 'jcr:primaryType="nt:unstructured"');
+    xml += this.line(this.I.MI + 1, `sling:resourceType="${resourceType}"`);
+
+    if (label) {
+      xml += this.line(this.I.MI + 1, `jcr:title="${this.escapeXml(label)}"`);
+    }
+
+    if (description) {
+      xml += this.line(
+        this.I.MI + 1,
+        `fieldDescription="${this.escapeXml(description)}"`
+      );
+    }
+
+    // Add additional properties
+    for (const [key, value] of Object.entries(otherProps)) {
+      if (key !== 'type' && key !== 'fields' && key !== 'items') {
+        const attr = this.generateAttributeValue(key, value);
+        xml += this.line(this.I.MI + 1, attr);
+      }
+    }
+
+    xml = xml.trimEnd() + '>\n';
+    xml += this.line(
+      this.I.MI + 1,
+      '<items jcr:primaryType="nt:unstructured">'
+    );
+
+    // Generate fields inside the fieldset
+    for (const subField of fieldsetFields) {
+      xml += this.generateMultifieldFieldsetItem(subField);
+    }
+
+    xml += this.line(this.I.MI + 1, '</items>');
+    xml += this.line(this.I.MI, `</${nodeName}>`);
+
+    return xml;
+  }
+
+  generateMultifieldFieldsetItem(field) {
+    const {
+      type = 'textfield',
+      name,
+      label,
+      description,
+      required = false,
+      defaultValue,
+      options,
+      ...otherProps
+    } = field;
+
+    const resourceType = this.getResourceType(type);
+    const fieldName = name || `./field_${Date.now()}`;
+    const nodeName = this.sanitizeNodeName(fieldName);
+
+    let xml = this.line(this.I.MI + 2, `<${nodeName}`);
+    xml += this.line(this.I.MI + 3, 'jcr:primaryType="nt:unstructured"');
+    xml += this.line(this.I.MI + 3, `sling:resourceType="${resourceType}"`);
+
+    if (label) {
+      xml += this.line(this.I.MI + 3, `fieldLabel="${this.escapeXml(label)}"`);
+    }
+
+    if (description) {
+      xml += this.line(
+        this.I.MI + 3,
+        `fieldDescription="${this.escapeXml(description)}"`
+      );
+    }
+
+    xml += this.line(this.I.MI + 3, `name="${fieldName}"`);
+
+    if (required) {
+      xml += this.line(this.I.MI + 3, 'required="{Boolean}true"');
+    }
+
+    if (defaultValue !== undefined) {
+      xml += this.line(
+        this.I.MI + 3,
+        `value="${this.escapeXml(defaultValue.toString())}"`
+      );
+    }
+
+    for (const [key, value] of Object.entries(otherProps)) {
+      if (key !== 'options' && key !== 'fields' && key !== 'items') {
+        xml += this.line(
+          this.I.MI + 3,
+          this.generateAttributeValue(key, value)
+        );
+      }
+    }
+
+    if (options && Array.isArray(options) && options.length > 0) {
+      xml = xml.trimEnd() + '>\n';
+      xml += this.line(
+        this.I.MI + 3,
+        '<items jcr:primaryType="nt:unstructured">'
+      );
+
+      for (const [i, opt] of options.entries()) {
+        const optName = opt.value || `option${i}`;
+        xml += this.line(this.I.MI + 4, `<${optName}`);
+        xml += this.line(this.I.MI + 5, 'jcr:primaryType="nt:unstructured"');
+        xml += this.line(
+          this.I.MI + 5,
+          `text="${this.escapeXml(opt.text || opt.value)}"`
+        );
+        xml += this.line(
+          this.I.MI + 5,
+          `value="${this.escapeXml(opt.value)}"/>`
+        );
+      }
+
+      xml += this.line(this.I.MI + 3, '</items>');
+      xml += this.line(this.I.MI + 2, `</${nodeName}>`);
     } else {
       xml = xml.trimEnd() + '/>\n';
     }
