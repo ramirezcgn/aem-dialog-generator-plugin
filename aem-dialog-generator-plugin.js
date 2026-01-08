@@ -2,6 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 
 class AemDialogGeneratorPlugin {
   constructor(options = {}) {
@@ -12,6 +13,8 @@ class AemDialogGeneratorPlugin {
       FNI: 13, // FIELD_NESTED_ITEM: Items inside internal nodes
       MI: 14, // MULTIFIELD_ITEM: Items inside composite multifield
     };
+
+    this._fieldCounter = 0;
 
     this.options = {
       sourceDir:
@@ -133,6 +136,9 @@ class AemDialogGeneratorPlugin {
   }
 
   generateDialogXml(config, componentName) {
+    // Reset field counter for deterministic field names
+    this._fieldCounter = 0;
+    
     const {
       title = componentName.charAt(0).toUpperCase() + componentName.slice(1),
       tabs = [],
@@ -152,6 +158,7 @@ class AemDialogGeneratorPlugin {
         'xmlns:nt': 'http://www.jcp.org/jcr/nt/1.0',
         'xmlns:cq': 'http://www.day.com/jcr/cq/1.0',
         'xmlns:granite': 'http://www.adobe.com/jcr/granite/1.0',
+        'jcr:primaryType': 'nt:unstructured',
         'jcr:title': title,
         'sling:resourceType': 'cq/gui/components/authoring/dialog',
       },
@@ -687,12 +694,6 @@ class AemDialogGeneratorPlugin {
       xml = this.appendAttribute(xml, this.I.FA, dataAttrs);
     }
 
-    if (type === 'checkbox' && cqShowHide && showhideTarget) {
-      xml = this.appendAttribute(xml, this.I.FA, {
-        'granite:data-cq-dialog-checkbox-showhide-target': showhideTarget,
-      });
-    }
-
     xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
       'options',
       'fields',
@@ -752,15 +753,20 @@ class AemDialogGeneratorPlugin {
           value: option.value,
         };
 
-        if (cqShowHide && option.showhideTarget) {
-          optAttributes['granite:data-cq-dialog-dropdown-showhide-target'] =
-            option.showhideTarget;
-        }
-
         xml += this.buildNode(this.I.FNI, optionName, optAttributes);
       }
 
       xml += this.closeNode(this.I.FN, 'items');
+      
+      // Add granite:data node for showhide functionality
+      if (cqShowHide && showhideTarget) {
+        xml += this.buildNode(this.I.FN, 'granite:data', {
+          'jcr:primaryType': 'nt:unstructured',
+          ...(type === 'select' && { 'cq-dialog-dropdown-showhide-target': showhideTarget }),
+          ...(type === 'checkbox' && { 'cq-dialog-checkbox-showhide-target': showhideTarget }),
+        });
+      }
+      
       if (type === 'select' && datasource) {
         xml += this.buildNode(this.I.FN, 'datasource', {
           'sling:resourceType': datasource,
@@ -844,9 +850,20 @@ class AemDialogGeneratorPlugin {
       xml += this.closeNode(this.I.F, nodeName);
     } else if (
       (type === 'select' && datasource) ||
-      (renderCondition && renderCondition.type)
+      (renderCondition && renderCondition.type) ||
+      (cqShowHide && showhideTarget)
     ) {
-      xml = this.selfClose(xml);
+      xml = this.openBlock(xml);
+      
+      // Add granite:data node for showhide functionality
+      if (cqShowHide && showhideTarget) {
+        xml += this.buildNode(this.I.FN, 'granite:data', {
+          'jcr:primaryType': 'nt:unstructured',
+          ...(type === 'select' && { 'cq-dialog-dropdown-showhide-target': showhideTarget }),
+          ...(type === 'checkbox' && { 'cq-dialog-checkbox-showhide-target': showhideTarget }),
+        });
+      }
+      
       if (type === 'select' && datasource) {
         xml += this.buildNode(this.I.FN, 'datasource', {
           'sling:resourceType': datasource,
@@ -991,6 +1008,7 @@ class AemDialogGeneratorPlugin {
       fields = [],
       items = [],
       showhideClass,
+      showhidetargetvalue,
       collapsible = false,
       ...otherProps
     } = field;
@@ -998,7 +1016,7 @@ class AemDialogGeneratorPlugin {
     const defaultNodeName = type === 'fieldset' ? 'fieldset' : 'container';
     const nodeName = name
       ? this.sanitizeNodeName(name)
-      : `${defaultNodeName}_${Date.now()}`;
+      : this.generateDeterministicNodeName(defaultNodeName, { label, description, fields, items, collapsible, ...otherProps });
     const resourceType = this.getResourceType(type);
     const nestedFields = fields.length > 0 ? fields : items;
 
@@ -1039,15 +1057,29 @@ class AemDialogGeneratorPlugin {
       'fields',
       'items',
       'showhideClass',
+      'showhidetargetvalue',
       'collapsible',
     ]);
 
     xml = this.openBlock(xml);
+    
+    // Add granite:data node for showhidetargetvalue if specified
+    if (showhidetargetvalue) {
+      xml += this.buildNode(this.I.FN, 'granite:data', {
+        'jcr:primaryType': 'nt:unstructured',
+        'showhidetargetvalue': showhidetargetvalue,
+      });
+    }
+    
     xml += this.buildNode(this.I.FN, 'items', {}, 'open');
 
-    for (const subField of nestedFields) {
-      xml += this.generateField(subField);
-    }
+    xml += this.withAdjustedIndentation(0, 1, () => {
+      let nestedXml = '';
+      for (const subField of nestedFields) {
+        nestedXml += this.generateField(subField);
+      }
+      return nestedXml;
+    });
 
     xml += this.closeNode(this.I.FN, 'items');
     xml += this.closeNode(this.I.F, nodeName);
@@ -1058,7 +1090,7 @@ class AemDialogGeneratorPlugin {
   generateFixedColumns(field) {
     const { name, columns = [], ...otherProps } = field;
 
-    const nodeName = name || `columns_${Date.now()}`;
+    const nodeName = name || this.generateDeterministicNodeName('columns', { columns, ...otherProps });
 
     let xml = this.buildNode(
       this.I.F,
@@ -1094,9 +1126,13 @@ class AemDialogGeneratorPlugin {
       xml = this.openBlock(xml);
       xml += this.buildNode(this.I.FNI + 1, 'items', {}, 'open');
 
-      for (const colField of columnFields) {
-        xml += this.generateField(colField);
-      }
+      xml += this.withAdjustedIndentation(2, 3, () => {
+        let nestedXml = '';
+        for (const colField of columnFields) {
+          nestedXml += this.generateField(colField);
+        }
+        return nestedXml;
+      });
 
       xml += this.closeNodes([
         [this.I.FNI + 1, 'items'],
@@ -1116,7 +1152,7 @@ class AemDialogGeneratorPlugin {
     const { fields = [], items = [], name, ...otherProps } = field;
 
     const wellFields = fields.length > 0 ? fields : items;
-    const nodeName = name || `well_${Date.now()}`;
+    const nodeName = name || this.generateDeterministicNodeName('well', { fields, items, ...otherProps });
     const sanitizedName = this.sanitizeNodeName(nodeName);
 
     let xml = this.buildNode(
@@ -1135,9 +1171,13 @@ class AemDialogGeneratorPlugin {
     xml = this.openBlock(xml);
     xml += this.buildNode(this.I.FN, 'items', {}, 'open');
 
-    for (const nestedField of wellFields) {
-      xml += this.generateField(nestedField);
-    }
+    xml += this.withAdjustedIndentation(0, 1, () => {
+      let nestedXml = '';
+      for (const nestedField of wellFields) {
+        nestedXml += this.generateField(nestedField);
+      }
+      return nestedXml;
+    });
 
     xml += this.closeNodes([
       [this.I.FN, 'items'],
@@ -1150,7 +1190,7 @@ class AemDialogGeneratorPlugin {
   generateHeading(field) {
     const { name, text, level = 3, ...otherProps } = field;
 
-    const nodeName = name || `heading_${Date.now()}`;
+    const nodeName = name || this.generateDeterministicNodeName('heading', { text, level, ...otherProps });
     const resourceType = this.getResourceType('heading');
 
     let xml = this.buildNode(
@@ -1179,7 +1219,7 @@ class AemDialogGeneratorPlugin {
   generateText(field) {
     const { name, text, variant, ...otherProps } = field;
 
-    const nodeName = name || `text_${Date.now()}`;
+    const nodeName = name || this.generateDeterministicNodeName('text', { text, variant, ...otherProps });
     const resourceType = this.getResourceType('text');
 
     let xml = this.buildNode(
@@ -1621,7 +1661,7 @@ class AemDialogGeneratorPlugin {
     const nodeName =
       name ||
       this.sanitizeNodeName(text).toLowerCase() ||
-      `button_${Date.now()}`;
+      this.generateDeterministicNodeName('button', { text, variant, icon, command, handler });
 
     let xml = this.buildNode(
       this.I.F,
@@ -2005,7 +2045,7 @@ class AemDialogGeneratorPlugin {
     const defaultNodeName = type === 'fieldset' ? 'fieldset' : 'container';
     const nodeName = name
       ? this.sanitizeNodeName(name)
-      : `${defaultNodeName}_${Date.now()}`;
+      : this.generateDeterministicNodeName(defaultNodeName, { label, description, fields, items, showhideClass, ...otherProps });
     const resourceType = this.getResourceType(type);
     const nestedFields = fields.length > 0 ? fields : items;
 
@@ -2169,7 +2209,7 @@ class AemDialogGeneratorPlugin {
   }
 
   selfClose(xml) {
-    return xml.trimEnd() + ' />\n';
+    return xml.trimEnd() + '/>\n';
   }
 
   openBlock(xml) {
@@ -2191,7 +2231,9 @@ class AemDialogGeneratorPlugin {
   }
 
   getFieldName(name) {
-    return name || `./field_${Date.now()}`;
+    if (name) return name;
+    this._fieldCounter = (this._fieldCounter || 0) + 1;
+    return `./field_${this._fieldCounter}`;
   }
 
   appendAdditionalProperties(xml, level, otherProps, excludedKeys = []) {
@@ -2218,7 +2260,8 @@ class AemDialogGeneratorPlugin {
 
     let xml = this.line(level, `<${nodeName}`);
 
-    if (!attributes['jcr:primaryType']) {
+    const hasXmlnsAttributes = Object.keys(attributes).some(key => key.startsWith('xmlns:'));
+    if (!attributes['jcr:primaryType'] && !hasXmlnsAttributes) {
       xml += this.line(level + 1, 'jcr:primaryType="nt:unstructured"');
     }
 
@@ -2261,6 +2304,24 @@ class AemDialogGeneratorPlugin {
   log(message) {
     if (this.options.verbose) {
       console.log(`[AemDialogGeneratorPlugin] ${message}`);
+    }
+  }
+
+  generateDeterministicNodeName(baseName, content) {
+    const contentString = JSON.stringify(content, Object.keys(content).sort());
+    const hash = crypto.createHash('md5').update(contentString).digest('hex').substring(0, 8);
+    const decimal = Number.parseInt(hash, 16);
+    return `${baseName}_${decimal}`;
+  }
+
+  withAdjustedIndentation(fieldOffset, attributeOffset, callback) {
+    const originalLevels = { ...this.I };
+    this.I.F = this.I.FNI + fieldOffset;
+    this.I.FA = this.I.FNI + attributeOffset;
+    try {
+      return callback();
+    } finally {
+      this.I = originalLevels;
     }
   }
 }

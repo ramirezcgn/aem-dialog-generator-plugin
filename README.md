@@ -815,47 +815,68 @@ Show different fields based on dropdown selection:
   "name": "./contentType",
   "label": "Content Type",
   "cqShowHide": true,
+  "showhideTarget": ".content-fields",
   "options": [
     {
       "text": "Image",
-      "value": "image",
-      "showhideTarget": ".image-fields"
+      "value": "image"
     },
     {
       "text": "Video",
-      "value": "video",
-      "showhideTarget": ".video-fields"
+      "value": "video"
     },
     {
       "text": "Text",
-      "value": "text",
-      "showhideTarget": ".text-fields"
+      "value": "text"
     }
   ]
 }
 ```
 
-Then define fields that will be shown/hidden:
+Then define containers that will be shown/hidden based on the selected value:
 
 ```json
 {
-  "type": "pathfield",
-  "name": "./imagePath",
-  "label": "Image Path",
-  "showhideClass": "image-fields",
-  "rootPath": "/content/dam"
+  "type": "container",
+  "showhideClass": "content-fields",
+  "showhidetargetvalue": "image",
+  "fields": [
+    {
+      "type": "pathfield",
+      "name": "./imagePath",
+      "label": "Image Path",
+      "rootPath": "/content/dam"
+    },
+    {
+      "type": "textfield",
+      "name": "./altText",
+      "label": "Alt Text"
+    }
+  ]
 },
 {
-  "type": "pathfield",
-  "name": "./videoUrl",
-  "label": "Video URL",
-  "showhideClass": "video-fields"
+  "type": "container",
+  "showhideClass": "content-fields",
+  "showhidetargetvalue": "video",
+  "fields": [
+    {
+      "type": "pathfield",
+      "name": "./videoUrl",
+      "label": "Video URL"
+    }
+  ]
 },
 {
-  "type": "textarea",
-  "name": "./textContent",
-  "label": "Text Content",
-  "showhideClass": "text-fields"
+  "type": "container",
+  "showhideClass": "content-fields",
+  "showhidetargetvalue": "text",
+  "fields": [
+    {
+      "type": "textarea",
+      "name": "./textContent",
+      "label": "Text Content"
+    }
+  ]
 }
 ```
 
@@ -890,8 +911,9 @@ Show fields when checkbox is checked:
 | Property | Type | Used On | Description |
 |----------|------|---------|-------------|
 | `cqShowHide` | Boolean | select, checkbox | Enable show/hide functionality |
-| `showhideTarget` | String | checkbox, option items | CSS selector of elements to show/hide (e.g., ".my-fields") |
-| `showhideClass` | String | Any field, fieldset, container | CSS class added to fields/containers that should be hidden (e.g., "my-fields") |
+| `showhideTarget` | String | select, checkbox | CSS selector of elements to show/hide (e.g., ".my-fields") |
+| `showhideClass` | String | fieldset, container | CSS class for elements that will be shown/hidden (e.g., "my-fields") |
+| `showhidetargetvalue` | String | fieldset, container | Value that triggers showing this container (used with showhideClass) |
 
 **Note:** You can use `showhideClass` on `fieldset` or `container` types to hide entire groups of fields together.
 
@@ -900,24 +922,37 @@ Show fields when checkbox is checked:
 <contentType
     granite:class="cq-dialog-dropdown-showhide"
     ...>
-    <items>
-        <image
-            granite:data-cq-dialog-dropdown-showhide-target=".image-fields"
-            .../>
+    <granite:data
+        jcr:primaryType="nt:unstructured"
+        cq-dialog-dropdown-showhide-target=".content-fields"/>
+    <items jcr:primaryType="nt:unstructured">
+        <image text="Image" value="image"/>
+        <video text="Video" value="video"/>
+        <text text="Text" value="text"/>
     </items>
 </contentType>
 
-<imagePath
-    granite:class="hide image-fields"
-    .../>
+<container_123456
+    sling:resourceType="granite/ui/components/coral/foundation/container"
+    granite:class="hide content-fields">
+    <granite:data
+        jcr:primaryType="nt:unstructured"
+        showhidetargetvalue="image"/>
+    <items jcr:primaryType="nt:unstructured">
+        <!-- image fields -->
+    </items>
+</container_123456>
 ```
 
 **Generated XML for checkbox:**
 ```xml
 <enableCustomSettings
     granite:class="cq-dialog-checkbox-showhide"
-    granite:data-cq-dialog-checkbox-showhide-target=".custom-settings"
-    .../>
+    ...>
+    <granite:data
+        jcr:primaryType="nt:unstructured"
+        cq-dialog-checkbox-showhide-target=".custom-settings"/>
+</enableCustomSettings>
 
 <customValue
     granite:class="hide custom-settings"
@@ -938,45 +973,54 @@ Show fields when checkbox is checked:
           "name": "./mediaType",
           "label": "Media Type",
           "cqShowHide": true,
+          "showhideTarget": ".media-fields",
           "defaultValue": "image",
           "options": [
             {
               "text": "Image",
-              "value": "image",
-              "showhideTarget": ".media-image"
+              "value": "image"
             },
             {
               "text": "Video",
-              "value": "video",
-              "showhideTarget": ".media-video"
+              "value": "video"
             }
           ]
         },
         {
-          "type": "pathfield",
-          "name": "./imageAsset",
-          "label": "Image Asset",
-          "showhideClass": "media-image",
-          "rootPath": "/content/dam"
+          "type": "container",
+          "showhideClass": "media-fields",
+          "showhidetargetvalue": "image",
+          "fields": [
+            {
+              "type": "pathfield",
+              "name": "./imageAsset",
+              "label": "Image Asset",
+              "rootPath": "/content/dam"
+            },
+            {
+              "type": "textfield",
+              "name": "./imageAlt",
+              "label": "Alt Text"
+            }
+          ]
         },
         {
-          "type": "textfield",
-          "name": "./imageAlt",
-          "label": "Alt Text",
-          "showhideClass": "media-image"
-        },
-        {
-          "type": "pathfield",
-          "name": "./videoAsset",
-          "label": "Video Asset",
-          "showhideClass": "media-video",
-          "rootPath": "/content/dam"
-        },
-        {
-          "type": "checkbox",
-          "name": "./videoAutoplay",
-          "label": "Autoplay Video",
-          "showhideClass": "media-video"
+          "type": "container",
+          "showhideClass": "media-fields",
+          "showhidetargetvalue": "video",
+          "fields": [
+            {
+              "type": "pathfield",
+              "name": "./videoAsset",
+              "label": "Video Asset",
+              "rootPath": "/content/dam"
+            },
+            {
+              "type": "checkbox",
+              "name": "./videoAutoplay",
+              "label": "Autoplay Video"
+            }
+          ]
         },
         {
           "type": "checkbox",
@@ -986,10 +1030,15 @@ Show fields when checkbox is checked:
           "showhideTarget": ".caption-fields"
         },
         {
-          "type": "textarea",
-          "name": "./caption",
-          "label": "Caption Text",
-          "showhideClass": "caption-fields"
+          "type": "container",
+          "showhideClass": "caption-fields",
+          "fields": [
+            {
+              "type": "textarea",
+              "name": "./caption",
+              "label": "Caption Text"
+            }
+          ]
         }
       ]
     }
@@ -999,7 +1048,7 @@ Show fields when checkbox is checked:
 
 ### Hiding Groups of Fields with Container
 
-You can use `container` or `fieldset` with `showhideClass` to hide multiple fields as a group:
+You can use `container` or `fieldset` with `showhideClass` and `showhidetargetvalue` to hide multiple fields as a group:
 
 ```json
 {
@@ -1007,15 +1056,17 @@ You can use `container` or `fieldset` with `showhideClass` to hide multiple fiel
   "name": "./mode",
   "label": "Display Mode",
   "cqShowHide": true,
+  "showhideTarget": ".mode-settings",
   "options": [
     { "text": "Simple", "value": "simple" },
-    { "text": "Advanced", "value": "advanced", "showhideTarget": ".advanced-settings" }
+    { "text": "Advanced", "value": "advanced" }
   ]
 },
 {
   "type": "container",
   "name": "advancedSettings",
-  "showhideClass": "advanced-settings",
+  "showhideClass": "mode-settings",
+  "showhidetargetvalue": "advanced",
   "fields": [
     {
       "type": "textfield",
@@ -1036,7 +1087,7 @@ You can use `container` or `fieldset` with `showhideClass` to hide multiple fiel
 }
 ```
 
-This will show/hide all three fields inside the container when "Advanced" is selected. Note that `container` doesn't require a `label` - it's just a grouping element.
+This will show/hide all three fields inside the container only when "Advanced" is selected. Note that `container` doesn't require a `label` - it's just a grouping element.
 
 #### multifield - Repeatable Fields
 

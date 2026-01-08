@@ -1322,7 +1322,7 @@ describe('AemDialogGeneratorPlugin', () => {
           renderCondition: {
             type: 'and',
             conditions: [
-              { type: 'simple', expression: "${hasPermission == true}" },
+              { type: 'simple', expression: '${hasPermission == true}' },
               { type: 'privilege', privilege: 'jcr:read' },
             ],
           },
@@ -2538,16 +2538,15 @@ describe('AemDialogGeneratorPlugin', () => {
           name: './contentType',
           label: 'Content Type',
           cqShowHide: true,
+          showhideTarget: '.content-fields',
           options: [
             {
               text: 'Image',
               value: 'image',
-              showhideTarget: '.image-fields',
             },
             {
               text: 'Video',
               value: 'video',
-              showhideTarget: '.video-fields',
             },
           ],
         };
@@ -2555,12 +2554,12 @@ describe('AemDialogGeneratorPlugin', () => {
         const xml = plugin.generateField(field);
 
         expect(xml).toContain('granite:class="cq-dialog-dropdown-showhide"');
-        expect(xml).toContain(
-          'granite:data-cq-dialog-dropdown-showhide-target=".image-fields"'
-        );
-        expect(xml).toContain(
-          'granite:data-cq-dialog-dropdown-showhide-target=".video-fields"'
-        );
+        expect(xml).toContain('<granite:data');
+        expect(xml).toContain('jcr:primaryType="nt:unstructured"');
+        expect(xml).toContain('cq-dialog-dropdown-showhide-target=".content-fields"');
+        // Options should not have individual targets
+        expect(xml).not.toContain('granite:data-cq-dialog-dropdown-showhide-target=".image-fields"');
+        expect(xml).not.toContain('granite:data-cq-dialog-dropdown-showhide-target=".video-fields"');
       });
 
       test('should generate checkbox with show/hide', () => {
@@ -2575,9 +2574,9 @@ describe('AemDialogGeneratorPlugin', () => {
         const xml = plugin.generateField(field);
 
         expect(xml).toContain('granite:class="cq-dialog-checkbox-showhide"');
-        expect(xml).toContain(
-          'granite:data-cq-dialog-checkbox-showhide-target=".custom-options"'
-        );
+        expect(xml).toContain('<granite:data');
+        expect(xml).toContain('jcr:primaryType="nt:unstructured"');
+        expect(xml).toContain('cq-dialog-checkbox-showhide-target=".custom-options"');
       });
 
       test('should generate field with showhide class', () => {
@@ -2599,19 +2598,21 @@ describe('AemDialogGeneratorPlugin', () => {
           name: './type',
           label: 'Type',
           cqShowHide: false,
+          showhideTarget: '.type-fields',
           options: [
-            { text: 'A', value: 'a', showhideTarget: '.a-fields' },
-            { text: 'B', value: 'b', showhideTarget: '.b-fields' },
+            { text: 'A', value: 'a' },
+            { text: 'B', value: 'b' },
           ],
         };
 
         const xml = plugin.generateField(field);
 
         expect(xml).not.toContain('cq-dialog-dropdown-showhide');
-        expect(xml).not.toContain('granite:data-cq-dialog-dropdown-showhide-target');
+        expect(xml).not.toContain('<granite:data');
+        expect(xml).not.toContain('cq-dialog-dropdown-showhide-target');
       });
 
-      test('should handle dropdown without showhideTarget in options', () => {
+      test('should handle dropdown without showhideTarget', () => {
         const field = {
           type: 'select',
           name: './type',
@@ -2619,24 +2620,15 @@ describe('AemDialogGeneratorPlugin', () => {
           cqShowHide: true,
           options: [
             { text: 'A', value: 'a' },
-            { text: 'B', value: 'b', showhideTarget: '.b-fields' },
+            { text: 'B', value: 'b' },
           ],
         };
 
         const xml = plugin.generateField(field);
 
         expect(xml).toContain('granite:class="cq-dialog-dropdown-showhide"');
-        expect(xml).toContain(
-          'granite:data-cq-dialog-dropdown-showhide-target=".b-fields"'
-        );
-        // Should not add target for option without it
-        const lines = xml.split('\n');
-        const optionALines = lines.filter((line) => line.includes('value="a"'));
-        expect(
-          optionALines.some((line) =>
-            line.includes('granite:data-cq-dialog-dropdown-showhide-target')
-          )
-        ).toBe(false);
+        // Should not generate granite:data without showhideTarget
+        expect(xml).not.toContain('<granite:data');
       });
 
       test('should combine multiple granite classes correctly', () => {
@@ -2678,6 +2670,124 @@ describe('AemDialogGeneratorPlugin', () => {
         const xml = plugin.generateField(field);
 
         expect(xml).not.toContain('showhideTarget=');
+      });
+
+      test('should generate container with showhidetargetvalue', () => {
+        const field = {
+          type: 'container',
+          name: 'primaryFields',
+          showhideClass: 'style-fields',
+          showhidetargetvalue: 'primary',
+          fields: [
+            {
+              type: 'textfield',
+              name: './primaryColor',
+              label: 'Primary Color',
+            },
+          ],
+        };
+
+        const xml = plugin.generateField(field);
+
+        expect(xml).toContain('granite:class="hide style-fields"');
+        expect(xml).toContain('<granite:data');
+        expect(xml).toContain('jcr:primaryType="nt:unstructured"');
+        expect(xml).toContain('showhidetargetvalue="primary"');
+      });
+
+      test('should generate fieldset with showhidetargetvalue', () => {
+        const field = {
+          type: 'fieldset',
+          name: 'advancedSettings',
+          label: 'Advanced Settings',
+          showhideClass: 'advanced-group',
+          showhidetargetvalue: 'advanced',
+          fields: [
+            {
+              type: 'numberfield',
+              name: './timeout',
+              label: 'Timeout',
+            },
+          ],
+        };
+
+        const xml = plugin.generateField(field);
+
+        expect(xml).toContain('granite:class="hide advanced-group"');
+        expect(xml).toContain('jcr:title="Advanced Settings"');
+        expect(xml).toContain('<granite:data');
+        expect(xml).toContain('showhidetargetvalue="advanced"');
+      });
+
+      test('should generate complete showhide workflow', () => {
+        // Test a complete select field with showhide functionality
+        const selectField = {
+          type: 'select',
+          name: './displayType',
+          label: 'Display Type',
+          cqShowHide: true,
+          showhideTarget: '.display-fields',
+          options: [
+            { text: 'Card', value: 'card' },
+            { text: 'List', value: 'list' },
+            { text: 'Grid', value: 'grid' },
+          ],
+        };
+
+        const selectXml = plugin.generateField(selectField);
+
+        // Verify select field structure
+        expect(selectXml).toContain('granite:class="cq-dialog-dropdown-showhide"');
+        expect(selectXml).toContain('<granite:data');
+        expect(selectXml).toContain('cq-dialog-dropdown-showhide-target=".display-fields"');
+
+        // Test corresponding container fields
+        const cardContainer = {
+          type: 'container',
+          showhideClass: 'display-fields',
+          showhidetargetvalue: 'card',
+          fields: [
+            { type: 'textfield', name: './cardTitle', label: 'Card Title' },
+          ],
+        };
+
+        const listContainer = {
+          type: 'container',
+          showhideClass: 'display-fields',
+          showhidetargetvalue: 'list',
+          fields: [
+            { type: 'numberfield', name: './itemsPerPage', label: 'Items per Page' },
+          ],
+        };
+
+        const cardXml = plugin.generateField(cardContainer);
+        const listXml = plugin.generateField(listContainer);
+
+        // Verify container structures
+        expect(cardXml).toContain('granite:class="hide display-fields"');
+        expect(cardXml).toContain('showhidetargetvalue="card"');
+        
+        expect(listXml).toContain('granite:class="hide display-fields"');
+        expect(listXml).toContain('showhidetargetvalue="list"');
+      });
+
+      test('should handle select field without showhideTarget but with datasource', () => {
+        const field = {
+          type: 'select',
+          name: './category',
+          label: 'Category',
+          cqShowHide: true,
+          datasource: 'mysite/datasources/categories',
+          options: [],
+        };
+
+        const xml = plugin.generateField(field);
+
+        expect(xml).toContain('granite:class="cq-dialog-dropdown-showhide"');
+        expect(xml).toContain('<datasource');
+        expect(xml).toContain('sling:resourceType="mysite/datasources/categories"');
+        // Should not generate granite:data without showhideTarget
+        expect(xml).not.toContain('cq-dialog-dropdown-showhide-target');
       });
 
       test('should not generate showhideClass as XML attribute', () => {
