@@ -2137,7 +2137,7 @@ class AemDialogGeneratorPlugin {
 
   sanitizeNodeName(name, prefix = '') {
     // Remove ./ prefix and replace invalid characters with underscore
-    let sanitized = name.replace(/^\.\//, '').replaceAll(/[^a-zA-Z0-9_-]/g, '_');
+    let sanitized = name.replace(/^\.\//, '').replaceAll(/\W/g, '_');
     
     // XML node names cannot start with numbers, prepend prefix or underscore if needed
     if (/^[0-9]/.test(sanitized)) {
