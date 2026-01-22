@@ -745,17 +745,7 @@ class AemDialogGeneratorPlugin {
     if (options && Array.isArray(options) && options.length > 0) {
       xml = this.openBlock(xml);
       xml += this.buildNode(this.I.FN, 'items', {}, 'open');
-
-      for (const [index, option] of options.entries()) {
-        const optionName = this.sanitizeNodeName(option.value || `option${index}`);
-        const optAttributes = {
-          text: option.text || option.value,
-          value: option.value,
-        };
-
-        xml += this.buildNode(this.I.FNI, optionName, optAttributes);
-      }
-
+      xml += this.appendOptions(options, this.I.FNI);
       xml += this.closeNode(this.I.FN, 'items');
       
       // Add granite:data node for showhide functionality
@@ -2145,8 +2135,16 @@ class AemDialogGeneratorPlugin {
     return xml;
   }
 
-  sanitizeNodeName(name) {
-    return name.replace(/^\.\//, '').replaceAll(/[^a-zA-Z0-9_-]/g, '_');
+  sanitizeNodeName(name, prefix = '') {
+    // Remove ./ prefix and replace invalid characters with underscore
+    let sanitized = name.replace(/^\.\//, '').replaceAll(/[^a-zA-Z0-9_-]/g, '_');
+    
+    // XML node names cannot start with numbers, prepend prefix or underscore if needed
+    if (/^[0-9]/.test(sanitized)) {
+      sanitized = (prefix ? prefix + '_' : '_') + sanitized;
+    }
+    
+    return sanitized;
   }
 
   escapeXml(text) {
@@ -2197,7 +2195,7 @@ class AemDialogGeneratorPlugin {
   appendOptions(options, baseIndent) {
     let xml = '';
     for (const [i, opt] of options.entries()) {
-      const optName = this.sanitizeNodeName(opt.value || `option${i}`);
+      const optName = this.sanitizeNodeName(opt.value || `option_${i}`, 'option');
       const attributes = {
         text: opt.text || opt.value,
         value: opt.value,
