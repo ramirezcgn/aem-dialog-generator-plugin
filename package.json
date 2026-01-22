@@ -32,7 +32,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ramirezcgn/aem-dialog-generator-plugin.git"
+    "url": "git+https://github.com/ramirezcgn/aem-dialog-generator-plugin.git"
   },
   "bugs": {
     "url": "https://github.com/ramirezcgn/aem-dialog-generator-plugin/issues"
