@@ -747,7 +747,7 @@ class AemDialogGeneratorPlugin {
       xml += this.buildNode(this.I.FN, 'items', {}, 'open');
 
       for (const [index, option] of options.entries()) {
-        const optionName = option.value || `option${index}`;
+        const optionName = this.sanitizeNodeName(option.value || `option${index}`);
         const optAttributes = {
           text: option.text || option.value,
           value: option.value,
