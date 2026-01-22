@@ -1006,7 +1006,16 @@ class AemDialogGeneratorPlugin {
     const defaultNodeName = type === 'fieldset' ? 'fieldset' : 'container';
     const nodeName = name
       ? this.sanitizeNodeName(name)
-      : this.generateDeterministicNodeName(defaultNodeName, { label, description, fields, items, collapsible, ...otherProps });
+      : this.generateDeterministicNodeName(defaultNodeName, {
+          label,
+          description,
+          fields,
+          items,
+          collapsible,
+          showhideClass,
+          showhidetargetvalue,
+          ...otherProps,
+        });
     const resourceType = this.getResourceType(type);
     const nestedFields = fields.length > 0 ? fields : items;
 
@@ -2136,14 +2145,10 @@ class AemDialogGeneratorPlugin {
   }
 
   sanitizeNodeName(name, prefix = '') {
-    // Remove ./ prefix and replace invalid characters with underscore
     let sanitized = name.replace(/^\.\//, '').replaceAll(/\W/g, '_');
-    
-    // XML node names cannot start with numbers, prepend prefix or underscore if needed
     if (/^[0-9]/.test(sanitized)) {
       sanitized = (prefix ? prefix + '_' : '_') + sanitized;
     }
-    
     return sanitized;
   }
 
@@ -2306,7 +2311,17 @@ class AemDialogGeneratorPlugin {
   }
 
   generateDeterministicNodeName(baseName, content) {
-    const contentString = JSON.stringify(content, Object.keys(content).sort());
+    const deterministicStringify = (obj) => {
+      if (obj === null || obj === undefined) return String(obj);
+      if (typeof obj !== 'object') return String(obj);
+      if (Array.isArray(obj)) {
+        return '[' + obj.map(item => deterministicStringify(item)).join(',') + ']';
+      }
+      const sortedKeys = Object.keys(obj).sort();
+      const pairs = sortedKeys.map(key => `"${key}":${deterministicStringify(obj[key])}`);
+      return '{' + pairs.join(',') + '}';
+    };    
+    const contentString = deterministicStringify(content);
     const hash = crypto.createHash('md5').update(contentString).digest('hex').substring(0, 8);
     const decimal = Number.parseInt(hash, 16);
     return `${baseName}_${decimal}`;

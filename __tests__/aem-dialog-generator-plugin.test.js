@@ -75,13 +75,36 @@ describe('AemDialogGeneratorPlugin', () => {
 
       test('should replace special characters with underscore', () => {
         expect(plugin.sanitizeNodeName('./my-field:name')).toBe(
-          'my-field_name'
+          'my_field_name'
         );
         expect(plugin.sanitizeNodeName('./field@name')).toBe('field_name');
       });
 
       test('should handle already clean names', () => {
         expect(plugin.sanitizeNodeName('cleanName')).toBe('cleanName');
+      });
+
+      test('should prepend underscore to names starting with numbers', () => {
+        expect(plugin.sanitizeNodeName('5')).toBe('_5');
+        expect(plugin.sanitizeNodeName('123field')).toBe('_123field');
+        expect(plugin.sanitizeNodeName('9abc')).toBe('_9abc');
+      });
+
+      test('should use custom prefix for names starting with numbers', () => {
+        expect(plugin.sanitizeNodeName('5', 'option')).toBe('option_5');
+        expect(plugin.sanitizeNodeName('123', 'field')).toBe('field_123');
+        expect(plugin.sanitizeNodeName('0value', 'custom')).toBe('custom_0value');
+      });
+
+      test('should handle special characters and numbers together', () => {
+        expect(plugin.sanitizeNodeName('5-test')).toBe('_5_test');
+        expect(plugin.sanitizeNodeName('123@field')).toBe('_123_field');
+        expect(plugin.sanitizeNodeName('a,b')).toBe('a_b');
+      });
+
+      test('should not add prefix when name starts with letter', () => {
+        expect(plugin.sanitizeNodeName('field123', 'prefix')).toBe('field123');
+        expect(plugin.sanitizeNodeName('a5', 'option')).toBe('a5');
       });
     });
 
@@ -3198,5 +3221,325 @@ describe('AemDialogGeneratorPlugin', () => {
         'sling:resourceType="granite/ui/components/coral/foundation/container"'
       );
     });
+  });
+});
+
+describe('generateDeterministicNodeName', () => {
+  let plugin;
+
+  beforeEach(() => {
+    plugin = new AemDialogGeneratorPlugin();
+  });
+
+  test('should generate same name for identical content', () => {
+    const content1 = {
+      label: 'Test',
+      description: 'Description',
+      items: ['a', 'b'],
+    };
+    const content2 = {
+      label: 'Test',
+      description: 'Description',
+      items: ['a', 'b'],
+    };
+
+    const name1 = plugin.generateDeterministicNodeName('container', content1);
+    const name2 = plugin.generateDeterministicNodeName('container', content2);
+
+    expect(name1).toBe(name2);
+  });
+
+  test('should generate different names for different items', () => {
+    const content1 = { items: [{ name: 'field1', type: 'textfield' }] };
+    const content2 = { items: [{ name: 'field2', type: 'textfield' }] };
+    const content3 = { items: [{ name: 'field3', type: 'textfield' }] };
+
+    const name1 = plugin.generateDeterministicNodeName('container', content1);
+    const name2 = plugin.generateDeterministicNodeName('container', content2);
+    const name3 = plugin.generateDeterministicNodeName('container', content3);
+
+    expect(name1).not.toBe(name2);
+    expect(name2).not.toBe(name3);
+    expect(name1).not.toBe(name3);
+  });
+
+  test('should generate different names for different showhidetargetvalue', () => {
+    const content1 = { showhidetargetvalue: 'options2', items: [] };
+    const content2 = { showhidetargetvalue: 'options3', items: [] };
+    const content3 = { showhidetargetvalue: 'options4', items: [] };
+
+    const name1 = plugin.generateDeterministicNodeName('container', content1);
+    const name2 = plugin.generateDeterministicNodeName('container', content2);
+    const name3 = plugin.generateDeterministicNodeName('container', content3);
+
+    console.log('Name 1:', name1);
+    console.log('Name 2:', name2);
+    console.log('Name 3:', name3);
+
+    expect(name1).not.toBe(name2);
+    expect(name2).not.toBe(name3);
+    expect(name1).not.toBe(name3);
+  });
+
+  test('should generate different names for different fields', () => {
+    const content1 = {
+      fields: [{ name: 'title', type: 'textfield', label: 'Title' }],
+    };
+    const content2 = {
+      fields: [{ name: 'description', type: 'textarea', label: 'Description' }],
+    };
+
+    const name1 = plugin.generateDeterministicNodeName('container', content1);
+    const name2 = plugin.generateDeterministicNodeName('container', content2);
+
+    expect(name1).not.toBe(name2);
+  });
+
+  test('should generate different names when array order differs', () => {
+    const content1 = { items: ['a', 'b', 'c'] };
+    const content2 = { items: ['c', 'b', 'a'] };
+
+    const name1 = plugin.generateDeterministicNodeName('container', content1);
+    const name2 = plugin.generateDeterministicNodeName('container', content2);
+
+    expect(name1).not.toBe(name2);
+  });
+
+  test('should generate different names for different labels', () => {
+    const content1 = { label: 'Label 1', items: [] };
+    const content2 = { label: 'Label 2', items: [] };
+
+    const name1 = plugin.generateDeterministicNodeName('container', content1);
+    const name2 = plugin.generateDeterministicNodeName('container', content2);
+
+    expect(name1).not.toBe(name2);
+  });
+
+  test('should handle empty content', () => {
+    const name = plugin.generateDeterministicNodeName('container', {});
+    expect(name).toMatch(/^container_\d+$/);
+  });
+
+  test('should handle complex nested structures', () => {
+    const content1 = {
+      label: 'Options 2',
+      showhideClass: 'options2',
+      showhidetargetvalue: 'options2',
+      items: [
+        { name: 'option2Field1', type: 'textfield' },
+        {
+          name: 'option2Field2',
+          type: 'select',
+          options: [{ text: 'A', value: 'a' }],
+        },
+      ],
+    };
+
+    const content2 = {
+      label: 'Options 3',
+      showhideClass: 'options3',
+      showhidetargetvalue: 'options3',
+      items: [
+        { name: 'option3Field1', type: 'textfield' },
+        {
+          name: 'option3Field2',
+          type: 'select',
+          options: [{ text: 'B', value: 'b' }],
+        },
+      ],
+    };
+
+    const name1 = plugin.generateDeterministicNodeName('container', content1);
+    const name2 = plugin.generateDeterministicNodeName('container', content2);
+
+    console.log('Complex 1:', name1);
+    console.log('Complex 2:', name2);
+
+    expect(name1).not.toBe(name2);
+  });
+
+  test('real world scenario - different containers with different showhidetargetvalue', () => {
+    // Simula el escenario real del usuario
+    const container1 = {
+      label: undefined,
+      description: undefined,
+      fields: [{ name: 'field1', type: 'textfield', label: 'Field 1' }],
+      items: [],
+      collapsible: false,
+      showhideClass: 'options2',
+      showhidetargetvalue: 'options2',
+    };
+
+    const container2 = {
+      label: undefined,
+      description: undefined,
+      fields: [{ name: 'field2', type: 'textfield', label: 'Field 2' }],
+      items: [],
+      collapsible: false,
+      showhideClass: 'options3',
+      showhidetargetvalue: 'options3',
+    };
+
+    const container3 = {
+      label: undefined,
+      description: undefined,
+      fields: [{ name: 'field3', type: 'textfield', label: 'Field 3' }],
+      items: [],
+      collapsible: false,
+      showhideClass: 'options4',
+      showhidetargetvalue: 'options4',
+    };
+
+    const name1 = plugin.generateDeterministicNodeName('container', container1);
+    const name2 = plugin.generateDeterministicNodeName('container', container2);
+    const name3 = plugin.generateDeterministicNodeName('container', container3);
+
+    console.log('Real world scenario:');
+    console.log('Container 1:', name1);
+    console.log('Container 2:', name2);
+    console.log('Container 3:', name3);
+
+    expect(name1).not.toBe(name2);
+    expect(name2).not.toBe(name3);
+    expect(name1).not.toBe(name3);
+  });
+
+  test('should demonstrate the REAL bug - JSON.stringify with key-only replacer omits nested object properties', () => {
+    // ESTE es el bug real que encontramos
+    const content1 = { fields: [{ name: 'field1', type: 'textfield' }] };
+    const content2 = { fields: [{ name: 'field2', type: 'textarea' }] };
+    
+    // Cuando usas JSON.stringify con un replacer que solo contiene keys del objeto raíz,
+    // NO serializa las propiedades de los objetos ANIDADOS en el array
+    const brokenJson1 = JSON.stringify(content1, Object.keys(content1).sort());
+    const brokenJson2 = JSON.stringify(content2, Object.keys(content2).sort());
+    
+    console.log('Broken JSON 1:', brokenJson1);
+    console.log('Broken JSON 2:', brokenJson2);
+    
+    // AMBOS producen "{"fields":[{}]}" - un objeto vacío en el array!
+    // Esto significa que containers con diferentes fields generaban el MISMO hash
+    expect(brokenJson1).toBe(brokenJson2);
+    expect(brokenJson1).toBe('{"fields":[{}]}');
+    
+    // Pero nuestro método SÍ debe generar nombres DIFERENTES
+    const name1 = plugin.generateDeterministicNodeName('container', content1);
+    const name2 = plugin.generateDeterministicNodeName('container', content2);
+    
+    console.log('Our method name 1:', name1);
+    console.log('Our method name 2:', name2);
+    
+    expect(name1).not.toBe(name2);
+  });
+
+  test('should generate deterministic names regardless of key order in nested objects', () => {
+    // Contenido idéntico pero con diferente orden de keys
+    const content1 = { 
+      fields: [
+        { name: 'test', type: 'textfield', label: 'Test' }
+      ]
+    };
+    const content2 = { 
+      fields: [
+        { label: 'Test', name: 'test', type: 'textfield' } // mismo contenido, diferente orden
+      ]
+    };
+    
+    const name1 = plugin.generateDeterministicNodeName('container', content1);
+    const name2 = plugin.generateDeterministicNodeName('container', content2);
+    
+    // Deben generar el MISMO nombre porque el contenido es equivalente
+    expect(name1).toBe(name2);
+  });
+
+  test('should include all distinguishing properties in hash calculation', () => {
+    // Asegura que showhideClass, showhidetargetvalue, y collapsible se incluyen
+    const container1 = {
+      showhideClass: 'options2',
+      showhidetargetvalue: 'options2',
+      collapsible: false
+    };
+    const container2 = {
+      showhideClass: 'options3',
+      showhidetargetvalue: 'options3',
+      collapsible: false
+    };
+    const container3 = {
+      showhideClass: 'options2',
+      showhidetargetvalue: 'options2',
+      collapsible: true // diferente collapsible
+    };
+    
+    const name1 = plugin.generateDeterministicNodeName('container', container1);
+    const name2 = plugin.generateDeterministicNodeName('container', container2);
+    const name3 = plugin.generateDeterministicNodeName('container', container3);
+    
+    // Todos deben ser diferentes
+    expect(name1).not.toBe(name2);
+    expect(name1).not.toBe(name3);
+    expect(name2).not.toBe(name3);
+  });
+
+  test('should handle deeply nested objects correctly', () => {
+    const content1 = {
+      fields: [
+        {
+          name: 'multifield',
+          type: 'multifield',
+          fields: [
+            { name: 'nested1', type: 'textfield' },
+            { name: 'nested2', type: 'select', options: [{ value: 'a', text: 'A' }] }
+          ]
+        }
+      ]
+    };
+    const content2 = {
+      fields: [
+        {
+          name: 'multifield',
+          type: 'multifield',
+          fields: [
+            { name: 'nested1', type: 'textfield' },
+            { name: 'nested2', type: 'select', options: [{ value: 'b', text: 'B' }] } // diferente option
+          ]
+        }
+      ]
+    };
+    
+    const name1 = plugin.generateDeterministicNodeName('container', content1);
+    const name2 = plugin.generateDeterministicNodeName('container', content2);
+    
+    // Deben ser diferentes porque las opciones son diferentes
+    expect(name1).not.toBe(name2);
+  });
+
+  test('should handle null and undefined values consistently', () => {
+    const content1 = { label: null, description: undefined, fields: [] };
+    const content2 = { label: null, description: undefined, fields: [] };
+    const content3 = { label: 'test', description: undefined, fields: [] };
+    
+    const name1 = plugin.generateDeterministicNodeName('container', content1);
+    const name2 = plugin.generateDeterministicNodeName('container', content2);
+    const name3 = plugin.generateDeterministicNodeName('container', content3);
+    
+    // Mismo contenido debe generar mismo nombre
+    expect(name1).toBe(name2);
+    // Diferente contenido debe generar diferente nombre
+    expect(name1).not.toBe(name3);
+  });
+
+  test('should handle arrays with primitive values correctly', () => {
+    const content1 = { items: ['a', 'b', 'c'] };
+    const content2 = { items: ['a', 'b', 'c'] };
+    const content3 = { items: ['c', 'b', 'a'] }; // diferente orden
+    
+    const name1 = plugin.generateDeterministicNodeName('container', content1);
+    const name2 = plugin.generateDeterministicNodeName('container', content2);
+    const name3 = plugin.generateDeterministicNodeName('container', content3);
+    
+    // Mismo orden debe generar mismo nombre
+    expect(name1).toBe(name2);
+    // Diferente orden debe generar diferente nombre (el orden importa en arrays)
+    expect(name1).not.toBe(name3);
   });
 });
