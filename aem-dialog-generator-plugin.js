@@ -2078,6 +2078,12 @@ class AemDialogGeneratorPlugin {
       return this.generateMultifieldFieldsetOrContainer(field, type);
     }
 
+    if (type === 'multifield') {
+      return this.withAdjustedIndentation(this.I.MI, this.I.MI + 1, () => {
+        return this.generateMultifield(field);
+      });
+    }
+
     const resourceType = this.getResourceType(type);
     const fieldName = this.getFieldName(name);
     const nodeName = this.sanitizeNodeName(fieldName);

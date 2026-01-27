@@ -2028,6 +2028,62 @@ describe('AemDialogGeneratorPlugin', () => {
         expect(xml).toContain('orderable="{Boolean}true"');
         expect(xml).toContain('deleteHint="Remove this item?"');
       });
+
+      test('should generate nested multifield', () => {
+        const multifield = {
+          name: './items',
+          type: 'multifield',
+          label: 'Navigation Block',
+          composite: true,
+          items: [
+            {
+              name: './title',
+              type: 'textfield',
+              label: 'Title',
+            },
+            {
+              name: './item',
+              type: 'multifield',
+              label: 'Navigation Item',
+              composite: true,
+              items: [
+                {
+                  name: './linkText',
+                  type: 'textfield',
+                  label: 'navLinkText',
+                },
+                {
+                  name: './linkUrl',
+                  type: 'pathfield',
+                  label: 'navLink',
+                  rootPath: '/content',
+                },
+              ],
+            },
+          ],
+        };
+
+        const xml = plugin.generateMultifield(multifield);
+
+        // Verify outer multifield
+        expect(xml).toContain('fieldLabel="Navigation Block"');
+        expect(xml).toContain('composite="{Boolean}true"');
+        
+        // Verify title field
+        expect(xml).toContain('name="./title"');
+        expect(xml).toContain('fieldLabel="Title"');
+        
+        // Verify nested multifield
+        expect(xml).toContain('fieldLabel="Navigation Item"');
+        expect(xml).toContain('name="./item"');
+        
+        // Verify nested multifield items
+        expect(xml).toContain('name="./linkText"');
+        expect(xml).toContain('fieldLabel="navLinkText"');
+        expect(xml).toContain('name="./linkUrl"');
+        expect(xml).toContain('fieldLabel="navLink"');
+        expect(xml).toContain('rootPath="/content"');
+      });
     });
 
     describe('generateHeading', () => {
