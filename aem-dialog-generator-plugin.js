@@ -2079,9 +2079,18 @@ class AemDialogGeneratorPlugin {
     }
 
     if (type === 'multifield') {
-      return this.withAdjustedIndentation(this.I.MI, this.I.MI + 1, () => {
-        return this.generateMultifield(field);
-      });
+      const nestedMultifield = this.generateMultifield(field);
+      
+      const lines = nestedMultifield.split('\n');
+      const reIndented = lines.map((line) => {
+        if (line.trim() === '') return line;
+        const indentMatch = /^(\s*)/.exec(line);
+        const currentIndent = indentMatch ? indentMatch[1].length / 4 : 0;
+        const newIndent = currentIndent + 3;
+        return '    '.repeat(newIndent) + line.trim();
+      }).join('\n');
+      
+      return reIndented;
     }
 
     const resourceType = this.getResourceType(type);
@@ -2243,7 +2252,7 @@ class AemDialogGeneratorPlugin {
 
   sanitizeNodeName(name, prefix = '') {
     let sanitized = name.replace(/^\.\//, '').replaceAll(/\W/g, '_');
-    if (/^[0-9]/.test(sanitized)) {
+    if (/^\d/.test(sanitized)) {
       sanitized = (prefix ? prefix + '_' : '_') + sanitized;
     }
     return sanitized;
@@ -2414,7 +2423,7 @@ class AemDialogGeneratorPlugin {
       if (Array.isArray(obj)) {
         return '[' + obj.map(item => deterministicStringify(item)).join(',') + ']';
       }
-      const sortedKeys = Object.keys(obj).sort();
+      const sortedKeys = Object.keys(obj).sort((a, b) => a.localeCompare(b));
       const pairs = sortedKeys.map(key => `"${key}":${deterministicStringify(obj[key])}`);
       return '{' + pairs.join(',') + '}';
     };    
@@ -2829,14 +2838,12 @@ class AemDialogGeneratorPlugin {
       try {
         let xml = fs.readFileSync(templatePoliciesPath, 'utf8');
         
-        // Check if mapping already exists
-        const mappingPattern = new RegExp(`<${componentName}\\s[^>]*cq:policy="[^"]*"[^>]*>`);
+        const mappingPattern = new RegExp(String.raw`<${componentName}\s[^>]*cq:policy="[^"]*"[^>]*>`);
         if (mappingPattern.test(xml)) {
           this.log(`• Policy mapping for ${componentName} already exists in ${templateName}`);
           return;
         }
 
-        // Find the closing </components> tag and add the mapping before it
         const componentsEndTag = '</components>';
         const componentsIndex = xml.lastIndexOf(componentsEndTag);
         
@@ -2845,7 +2852,6 @@ class AemDialogGeneratorPlugin {
           return;
         }
 
-        // Generate the policy mapping
         const policyPath = `${appName}/components/${componentName}/${policyName}`;
         
         const mappingXml = this.buildNode(
@@ -2859,10 +2865,8 @@ class AemDialogGeneratorPlugin {
           'self'
         );
 
-        // Insert the mapping
         xml = xml.substring(0, componentsIndex) + mappingXml + xml.substring(componentsIndex);
         
-        // Write back to file
         fs.writeFileSync(templatePoliciesPath, xml, 'utf8');
         
         this.log(`✓ Mapped policy ${policyPath} to template ${templateName}`);

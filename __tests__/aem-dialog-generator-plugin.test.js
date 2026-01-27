@@ -2083,6 +2083,25 @@ describe('AemDialogGeneratorPlugin', () => {
         expect(xml).toContain('name="./linkUrl"');
         expect(xml).toContain('fieldLabel="navLink"');
         expect(xml).toContain('rootPath="/content"');
+        
+        // Verify correct indentation structure
+        const lines = xml.split('\n');
+        
+        // Find the title field line (should be at 12 spaces - level 3)
+        const titleLine = lines.find(l => l.includes('<title'));
+        expect(titleLine).toMatch(/^\s{12}<title/);
+        
+        // Find the nested multifield opening tag (should be at same level as title - 12 spaces)
+        const itemMultifieldLine = lines.find(l => l.trim() === '<item');
+        expect(itemMultifieldLine).toMatch(/^\s{12}<item$/);
+        
+        // Find linkText in nested multifield (should be at 24 spaces - level 6)
+        const linkTextLine = lines.find(l => l.includes('<linkText'));
+        expect(linkTextLine).toMatch(/^\s{24}<linkText/);
+        
+        // Find linkUrl in nested multifield (should be at 24 spaces - level 6)
+        const linkUrlLine = lines.find(l => l.includes('<linkUrl'));
+        expect(linkUrlLine).toMatch(/^\s{24}<linkUrl/);
       });
     });
 
