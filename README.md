@@ -1,6 +1,6 @@
 # AEM Dialog Generator Plugin
 
-A Webpack plugin that automatically generates AEM component `_cq_dialog.xml` files from simple JSON configurations.
+A Webpack plugin that automatically generates AEM component `_cq_dialog.xml` and `_cq_design_dialog.xml` files with associated policies from simple JSON configurations. Features intelligent automation including automatic style tab generation, policy-to-template mapping, and dynamic indentation for production-ready AEM components.
 
 [![npm version](https://img.shields.io/npm/v/aem-dialog-generator-plugin.svg)](https://www.npmjs.com/package/aem-dialog-generator-plugin)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -30,6 +30,13 @@ A Webpack plugin that automatically generates AEM component `_cq_dialog.xml` fil
 🧭 **UX** - autoFocus para enfocar campos al abrir el diálogo
 🧱 **Estilos** - wrapperClass para clases del contenedor
 🧪 **Tipos** - typeHint para guardar con el tipo correcto en JCR
+🎨 **Design Dialogs** - Generate design dialogs (_cq_design_dialog) for component policies
+📋 **Policy Generation** - Automatically create component policies with RTE config, styles, and more
+🎨 **Style System** - Define style groups and variants for the AEM Style System
+📐 **Component Mapping** - Configure asset-to-component drag & drop mappings
+🔄 **Dynamic Indentation** - Consistent XML indentation across all generated content
+⚡ **Auto Style Tab** - Automatic cq:styles tab generation when styleGroups are present
+🔗 **Template Integration** - Automatic policy-to-template mapping for seamless deployment
 
 ## Installation
 
@@ -51,7 +58,10 @@ module.exports = {
       sourceDir: path.resolve(__dirname, 'src/main/webpack/components'),
       targetDir: path.resolve(__dirname, '../ui.apps/src/main/content/jcr_root/apps/mysite/components'),
       appName: 'mysite',
-      verbose: true
+      generatePolicies: true,
+      policiesTargetDir: path.resolve(__dirname, '../ui.content/src/main/content/jcr_root/conf/mysite/settings/wcm/policies'),
+      templatePoliciesDir: path.resolve(__dirname, '../ui.content/src/main/content/jcr_root/conf/mysite/settings/wcm/templates'),
+      autoMapPoliciesToTemplates: true
     })
   ]
 };
@@ -113,9 +123,14 @@ ui.apps/src/main/content/jcr_root/apps/mysite/components/button/_cq_dialog/.cont
 | `sourceDir` | String | Required | Folder containing component dialog.json files |
 | `targetDir` | String | Required | Target folder for generated XML files |
 | `dialogFileName` | String | `dialog.json` | Name of the JSON configuration file |
+| `designDialogFileName` | String | `designDialog.json` | Name of the design dialog JSON configuration file |
 | `appName` | String | `mysite` | AEM application name |
 | `useFolderStructure` | Boolean | `true` | Use `_cq_dialog/.content.xml` (true) or `_cq_dialog.xml` (false) |
 | `verbose` | Boolean | `false` | Enable detailed logging |
+| `generatePolicies` | Boolean | `true` | Enable automatic policy generation from designDialog.json |
+| `policiesTargetDir` | String | `../ui.content/.../policies` | Target folder for generated policy XML files |
+| `templatePoliciesDir` | String | `../ui.content/.../templates` | Target folder for template policy mapping |
+| `autoMapPoliciesToTemplates` | Boolean | `true` | Automatically map policies to specified templates |
 
 ## Supported Field Types
 
@@ -165,6 +180,364 @@ Complement `trackingFeature` to identify a specific element interaction.
 ```json
 { "type": "textfield", "name": "./ctaText", "label": "CTA Text", "trackingFeature": "hero", "trackingElement": "cta" }
 ```
+
+## What's New in v2.0.0 🎉
+
+Version 2.0.0 introduces powerful automation features that significantly reduce manual configuration and improve developer productivity:
+
+### 🤖 Intelligent Automation
+- **Auto Style Tab**: Automatically generates `cq:styles` tab when policies contain `styleGroups`
+- **Template Mapping**: One-click policy deployment to multiple templates
+- **Dynamic Indentation**: Perfect XML formatting regardless of complexity
+
+### 🏗️ Enhanced Architecture  
+- **Hierarchical Policies**: Proper AEM policy directory structure (`/conf/{app}/settings/wcm/policies/{app}/components/`)
+- **Consistent XML**: Unified XML generation using `buildNode()` for reliability
+- **Smart Detection**: Automatically detects when style system integration is needed
+
+### 🚀 Developer Experience
+- **Zero Configuration**: Default settings work out of the box
+- **Automatic Deployment**: Policies are instantly mapped to templates
+- **Production Ready**: Generated XML follows all AEM best practices
+
+### 📊 Comprehensive Testing
+- **239 Tests**: Complete test coverage including all new automation features
+- **Regression Protection**: Ensures backward compatibility with existing configurations
+- **Edge Case Handling**: Robust validation and error handling
+
+## Design Dialogs & Component Policies
+
+The plugin now supports generating Design Dialogs (`_cq_design_dialog`) and their associated component policies. This simplifies the complex task of configuring component policies in AEM.
+
+### Creating a Design Dialog
+
+Create a `designDialog.json` file alongside your `dialog.json`:
+
+**Example: `src/main/webpack/components/button/designDialog.json`**
+
+```json
+{
+  "title": "Button Design",
+  "layout": "simple",
+  "fields": [
+    {
+      "type": "checkbox",
+      "name": "./enableVariants",
+      "label": "Enable Button Variants",
+      "description": "Allow authors to choose between different button styles"
+    },
+    {
+      "type": "checkbox",
+      "name": "./enableSizes",
+      "label": "Enable Size Options"
+    }
+  ],
+  "policy": {
+    "name": "policy_button",
+    "title": "Button Policy",
+    "description": "Policy configuration for button component",
+    "properties": {
+      "allowedVariants": "[primary,secondary,outline]",
+      "enableAnimation": "{Boolean}true"
+    },
+    "styleGroups": [
+      {
+        "name": "variants",
+        "label": "Button Variants",
+        "styles": [
+          {
+            "name": "primary",
+            "label": "Primary",
+            "classes": "cmp-button--primary"
+          },
+          {
+            "name": "secondary",
+            "label": "Secondary",
+            "classes": "cmp-button--secondary"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Policy Configuration
+
+The `policy` object in your `designDialog.json` supports:
+
+#### Basic Policy Properties
+
+```json
+{
+  "policy": {
+    "name": "policy_mycomponent",
+    "title": "My Component Policy",
+    "description": "Policy description shown in template editor",
+    "properties": {
+      "customProperty": "value",
+      "enableFeature": "{Boolean}true",
+      "maxItems": "{Long}5"
+    }
+  }
+}
+```
+
+#### Style System Configuration
+
+Define style groups for the AEM Style System:
+
+```json
+{
+  "policy": {
+    "styleGroups": [
+      {
+        "name": "layout",
+        "label": "Layout Options",
+        "styles": [
+          {
+            "name": "grid",
+            "label": "Grid Layout",
+            "classes": "cmp-container--grid",
+            "icon": "viewGrid"
+          },
+          {
+            "name": "flex",
+            "label": "Flex Layout",
+            "classes": "cmp-container--flex"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+#### RTE Plugin Configuration
+
+Configure Rich Text Editor plugins in policies:
+
+```json
+{
+  "policy": {
+    "rtePlugins": {
+      "format": {
+        "features": "bold,italic,underline"
+      },
+      "paraformat": {
+        "features": "*",
+        "formats": [
+          { "description": "Heading 1", "tag": "h1" },
+          { "description": "Heading 2", "tag": "h2" },
+          { "description": "Paragraph", "tag": "p" }
+        ]
+      },
+      "links": {
+        "features": "modifylink,unlink"
+      },
+      "lists": {
+        "features": "*"
+      },
+      "justify": {
+        "features": "-"
+      },
+      "table": {
+        "features": "-"
+      }
+    }
+  }
+}
+```
+
+#### Component Mapping
+
+Configure asset-to-component drag & drop mappings:
+
+```json
+{
+  "policy": {
+    "componentMapping": [
+      {
+        "assetGroup": "media",
+        "assetMimetype": "image/*",
+        "droptarget": "image",
+        "resourceType": "mysite/components/image"
+      },
+      {
+        "assetGroup": "content",
+        "assetMimetype": "text/html",
+        "droptarget": "experiencefragment",
+        "resourceType": "mysite/components/experiencefragment"
+      }
+    ]
+  }
+}
+```
+
+### Complete Design Dialog Example
+
+**Hero Component with Full Policy Configuration:**
+
+```json
+{
+  "title": "Hero Design",
+  "layout": "tabs",
+  "tabs": [
+    {
+      "title": "Layout Options",
+      "fields": [
+        {
+          "type": "select",
+          "name": "./defaultLayout",
+          "label": "Default Layout",
+          "defaultValue": "centered",
+          "options": [
+            { "text": "Centered", "value": "centered" },
+            { "text": "Left Aligned", "value": "left" },
+            { "text": "Right Aligned", "value": "right" }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "name": "./allowBackgroundImage",
+          "label": "Allow Background Image"
+        }
+      ]
+    }
+  ],
+  "policy": {
+    "name": "policy_hero",
+    "title": "Hero Component Policy",
+    "description": "Comprehensive policy for hero component",
+    "properties": {
+      "allowedLayouts": "[centered,left,right]",
+      "minHeight": "{Long}400",
+      "maxHeight": "{Long}800"
+    },
+    "rtePlugins": {
+      "format": {
+        "features": "bold,italic"
+      },
+      "paraformat": {
+        "features": "*",
+        "formats": [
+          { "description": "Heading 1", "tag": "h1" },
+          { "description": "Paragraph", "tag": "p" }
+        ]
+      },
+      "links": {
+        "features": "modifylink,unlink"
+      }
+    },
+    "styleGroups": [
+      {
+        "name": "layouts",
+        "label": "Hero Layouts",
+        "styles": [
+          {
+            "name": "centered",
+            "label": "Centered",
+            "classes": "cmp-hero--centered"
+          },
+          {
+            "name": "left",
+            "label": "Left Aligned",
+            "classes": "cmp-hero--left"
+          }
+        ]
+      },
+      {
+        "name": "themes",
+        "label": "Color Themes",
+        "styles": [
+          {
+            "name": "light",
+            "label": "Light Theme",
+            "classes": "cmp-hero--light"
+          },
+          {
+            "name": "dark",
+            "label": "Dark Theme",
+            "classes": "cmp-hero--dark"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Generated Output
+
+When you build, the plugin generates:
+
+1. **Design Dialog XML**: `ui.apps/.../button/_cq_design_dialog/.content.xml`
+2. **Policy XML**: `ui.content/.../policies/button/.content.xml`
+3. **Template Mapping**: Automatically maps policies to specified templates (when `autoMapPoliciesToTemplates: true`)
+
+The policy XML is structured according to AEM standards and can be referenced in your page templates.
+
+### Automatic Features
+
+The plugin now includes several automatic features to streamline AEM component development:
+
+#### 🎨 Automatic cq:styles Tab Generation
+
+When a policy includes `styleGroups`, the plugin automatically generates a `cq:styles` tab in the design dialog:
+
+```json
+{
+  "policy": {
+    "styleGroups": [
+      {
+        "name": "variants",
+        "label": "Button Variants",
+        "styles": [...]
+      }
+    ]
+  }
+}
+```
+
+This automatically adds the AEM Style System tab to your design dialog without manual configuration.
+
+#### 🔗 Automatic Policy-to-Template Mapping
+
+Configure which templates should use a component policy by adding a `templates` array to your policy:
+
+```json
+{
+  "policy": {
+    "name": "policy_section_container",
+    "title": "Section Container Policy",
+    "description": "Policy for section component",
+    "templates": ["page-content", "landing-page"]
+  }
+}
+```
+
+The plugin will automatically update the template policy files to include the mapping:
+
+```xml
+<section
+    cq:policy="mysite/components/section/policy_section_container"
+    jcr:primaryType="nt:unstructured"
+    sling:resourceType="wcm/core/components/policies/mapping"/>
+```
+
+#### 📐 Dynamic Indentation System
+
+All generated XML uses a consistent, dynamic indentation system that ensures properly formatted output regardless of nesting level or complexity.
+
+#### 📁 Correct Policy Structure
+
+Policies are automatically generated in the proper AEM directory structure:
+
+```
+/conf/{appName}/settings/wcm/policies/{appName}/components/{componentName}/.content.xml
+```
+
+This follows AEM best practices and ensures policies are properly organized.
 
 #### textarea
 ```json

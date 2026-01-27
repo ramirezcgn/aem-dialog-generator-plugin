@@ -1,5 +1,6 @@
 const AemDialogGeneratorPlugin = require('../aem-dialog-generator-plugin');
 const fs = require('node:fs');
+const path = require('node:path');
 
 // Mock fs module
 jest.mock('node:fs');
@@ -33,13 +34,16 @@ describe('AemDialogGeneratorPlugin', () => {
     test('should initialize with default options', () => {
       plugin = new AemDialogGeneratorPlugin();
 
+      // Dynamic indentation system - uses relative offsets from base level
       expect(plugin.I).toEqual({
-        F: 11,
-        FA: 12,
-        FN: 12,
-        FNI: 13,
-        MI: 14,
+        F: 0,  // Field base (relative to current base)
+        FA: 1, // Field attributes (+1 from field)
+        FN: 1, // Field nested nodes (+1 from field)
+        FNI: 2, // Field nested items (+2 from field)
+        MI: 3,  // Multifield items (+3 from field)
       });
+      expect(plugin._baseIndentLevel).toBe(0);
+      expect(plugin._indentStack).toEqual([]);
       expect(plugin.options.dialogFileName).toBe('dialog.json');
       expect(plugin.options.useFolderStructure).toBe(true);
       expect(plugin.options.verbose).toBe(false);
@@ -3541,5 +3545,795 @@ describe('generateDeterministicNodeName', () => {
     expect(name1).toBe(name2);
     // Diferente orden debe generar diferente nombre (el orden importa en arrays)
     expect(name1).not.toBe(name3);
+  });
+});
+
+describe('Design Dialog Generation', () => {
+  let plugin;
+  let tempDir;
+  let realFs;
+
+  beforeAll(() => {
+    // Restore real fs for these integration tests
+    realFs = jest.requireActual('node:fs');
+    // Replace the mocked fs with real fs for this describe block
+    Object.assign(fs, realFs);
+  });
+
+  beforeEach(() => {
+    tempDir = path.join(__dirname, 'temp-design');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    plugin = new AemDialogGeneratorPlugin({
+      sourceDir: tempDir,
+      targetDir: path.join(tempDir, 'target'),
+      policiesTargetDir: path.join(tempDir, 'policies'),
+      appName: 'testsite',
+      generatePolicies: true,
+      verbose: false,
+    });
+  });
+
+  afterEach(() => {
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  describe('generateDesignDialogXml', () => {
+    test('should generate basic design dialog XML', () => {
+      const config = {
+        title: 'Button Design',
+        layout: 'simple',
+        fields: [
+          {
+            type: 'checkbox',
+            name: './enableVariants',
+            label: 'Enable Variants',
+          },
+        ],
+      };
+
+      const xml = plugin.generateDesignDialogXml(config, 'button');
+
+      expect(xml).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+      expect(xml).toContain('jcr:title="Button Design"');
+      expect(xml).toContain(
+        'sling:resourceType="cq/gui/components/authoring/dialog"'
+      );
+      expect(xml).toContain('name="./enableVariants"');
+      expect(xml).toContain('fieldLabel="Enable Variants"');
+    });
+
+    test('should generate design dialog with tabs', () => {
+      const config = {
+        title: 'Card Design',
+        layout: 'tabs',
+        tabs: [
+          {
+            title: 'Display Options',
+            fields: [
+              {
+                type: 'checkbox',
+                name: './showImage',
+                label: 'Show Image',
+              },
+            ],
+          },
+          {
+            title: 'Layout Settings',
+            fields: [
+              {
+                type: 'select',
+                name: './layout',
+                label: 'Layout',
+                options: [
+                  { text: 'Grid', value: 'grid' },
+                  { text: 'List', value: 'list' },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+      const xml = plugin.generateDesignDialogXml(config, 'card');
+
+      expect(xml).toContain('jcr:title="Display Options"');
+      expect(xml).toContain('jcr:title="Layout Settings"');
+      expect(xml).toContain('name="./showImage"');
+      expect(xml).toContain('name="./layout"');
+    });
+
+    test('should generate cq:styles tab when policy has styleGroups', () => {
+      const config = {
+        title: 'Section Design',
+        layout: 'tabs',
+        tabs: [
+          {
+            title: 'Container Settings',
+            fields: [
+              {
+                type: 'select',
+                name: './layout',
+                label: 'Layout',
+                options: [
+                  { text: 'Fixed', value: 'fixed' },
+                  { text: 'Full', value: 'full' },
+                ],
+              },
+            ],
+          },
+        ],
+        policy: {
+          styleGroups: [
+            {
+              name: 'variants',
+              label: 'Variants',
+              styles: [
+                {
+                  name: 'default',
+                  label: 'Default',
+                  classes: 'cmp-section--default',
+                },
+              ],
+            },
+          ],
+        },
+      };
+
+      const xml = plugin.generateDesignDialogXml(config, 'section');
+
+      expect(xml).toContain('<cq:styles');
+      expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/include"');
+      expect(xml).toContain('path="/mnt/overlay/cq/gui/components/authoring/dialog/style/tab_design/styletab"');
+    });
+
+    test('should not generate cq:styles tab when policy has no styleGroups', () => {
+      const config = {
+        title: 'Button Design',
+        layout: 'simple',
+        fields: [
+          {
+            type: 'checkbox',
+            name: './enabled',
+            label: 'Enabled',
+          },
+        ],
+        policy: {
+          properties: {
+            someProp: 'value',
+          },
+        },
+      };
+
+      const xml = plugin.generateDesignDialogXml(config, 'button');
+
+      expect(xml).not.toContain('<cq:styles');
+      expect(xml).not.toContain('styletab');
+    });
+  });
+
+  describe('mapPolicyToTemplates', () => {
+    test('should automatically map policy to specified templates', () => {
+      // Create a mock template policies file
+      const templateDir = path.join(tempDir, 'templates', 'page-template', 'policies');
+      if (!fs.existsSync(templateDir)) {
+        fs.mkdirSync(templateDir, { recursive: true });
+      }
+      
+      const mockTemplatePoliciesContent = `<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content>
+        <root>
+            <container>
+                <mysite jcr:primaryType="nt:unstructured">
+                    <components jcr:primaryType="nt:unstructured">
+                        <title
+                            cq:policy="mysite/components/title/policy_123"
+                            jcr:primaryType="nt:unstructured"
+                            sling:resourceType="wcm/core/components/policies/mapping"/>
+                    </components>
+                </mysite>
+            </container>
+        </root>
+    </jcr:content>
+</jcr:root>`;
+
+      const templatePoliciesPath = path.join(templateDir, '.content.xml');
+      fs.writeFileSync(templatePoliciesPath, mockTemplatePoliciesContent, 'utf8');
+
+      // Update plugin to use this template directory
+      plugin.options.templatePoliciesDir = path.join(tempDir, 'templates');
+
+      const policyConfig = {
+        name: 'policy_hero',
+        title: 'Hero Policy',
+        templates: ['page-template'],
+        properties: {
+          enableVideo: '{Boolean}true',
+        },
+      };
+
+      plugin.mapPolicyToTemplates('hero', policyConfig);
+
+      // Verify the mapping was added
+      const updatedContent = fs.readFileSync(templatePoliciesPath, 'utf8');
+      expect(updatedContent).toContain('hero');
+      expect(updatedContent).toContain('cq:policy="testsite/components/hero/policy_hero"');
+      expect(updatedContent).toContain('sling:resourceType="wcm/core/components/policies/mapping"');
+    });
+  });
+
+  describe('generatePolicy', () => {
+    test('should generate basic policy XML', () => {
+      const policyConfig = {
+        name: 'policy_button',
+        title: 'Button Policy',
+        description: 'Policy for button component',
+        properties: {
+          allowedVariants: '[primary,secondary]',
+          enableAnimation: '{Boolean}true',
+        },
+      };
+
+      plugin.generatePolicy('button', policyConfig);
+
+      const policyPath = path.join(
+        tempDir,
+        'policies',
+        'testsite',
+        'components',
+        'button',
+        '.content.xml'
+      );
+      expect(fs.existsSync(policyPath)).toBe(true);
+
+      const xml = fs.readFileSync(policyPath, 'utf8');
+      expect(xml).toContain('jcr:title="Button Policy"');
+      expect(xml).toContain('jcr:description="Policy for button component"');
+      expect(xml).toContain('allowedVariants="[primary,secondary]"');
+      expect(xml).toContain('enableAnimation="{Boolean}true"');
+    });
+
+    test('should generate policy with style groups', () => {
+      const policyConfig = {
+        name: 'policy_card',
+        title: 'Card Policy',
+        styleGroups: [
+          {
+            name: 'variants',
+            label: 'Card Variants',
+            styles: [
+              {
+                name: 'default',
+                label: 'Default',
+                classes: 'cmp-card--default',
+              },
+              {
+                name: 'elevated',
+                label: 'Elevated',
+                classes: 'cmp-card--elevated',
+              },
+            ],
+          },
+        ],
+      };
+
+      plugin.generatePolicy('card', policyConfig);
+
+      const policyPath = path.join(tempDir, 'policies', 'testsite', 'components', 'card', '.content.xml');
+      const xml = fs.readFileSync(policyPath, 'utf8');
+
+      expect(xml).toContain('cq:styleGroups');
+      expect(xml).toContain('variants');
+      expect(xml).toContain('cq:styleGroupLabel="Card Variants"');
+      expect(xml).toContain('cq:styleLabel="Default"');
+      expect(xml).toContain('cq:styleClasses="cmp-card--default"');
+      expect(xml).toContain('cq:styleLabel="Elevated"');
+      expect(xml).toContain('cq:styleClasses="cmp-card--elevated"');
+    });
+
+    test('should generate policy with RTE plugins', () => {
+      const policyConfig = {
+        name: 'policy_text',
+        title: 'Text Policy',
+        rtePlugins: {
+          format: {
+            features: 'bold,italic',
+          },
+          paraformat: {
+            features: '*',
+            formats: [
+              { description: 'Heading 1', tag: 'h1' },
+              { description: 'Paragraph', tag: 'p' },
+            ],
+          },
+          links: {
+            features: 'modifylink,unlink',
+          },
+        },
+      };
+
+      plugin.generatePolicy('text', policyConfig);
+
+      const policyPath = path.join(tempDir, 'policies', 'testsite', 'components', 'text', '.content.xml');
+      const xml = fs.readFileSync(policyPath, 'utf8');
+
+      expect(xml).toContain('rtePlugins');
+      expect(xml).toContain('<format');
+      expect(xml).toContain('features="bold,italic"');
+      expect(xml).toContain('<paraformat');
+      expect(xml).toContain('features="*"');
+      expect(xml).toContain('formats');
+      expect(xml).toContain('description="Heading 1"');
+      expect(xml).toContain('tag="h1"');
+      expect(xml).toContain('description="Paragraph"');
+      expect(xml).toContain('tag="p"');
+      expect(xml).toContain('<links');
+      expect(xml).toContain('features="modifylink,unlink"');
+    });
+
+    test('should generate policy with component mapping', () => {
+      const policyConfig = {
+        name: 'policy_container',
+        title: 'Container Policy',
+        componentMapping: [
+          {
+            assetGroup: 'media',
+            assetMimetype: 'image/*',
+            droptarget: 'image',
+            resourceType: 'mysite/components/image',
+          },
+          {
+            assetGroup: 'content',
+            assetMimetype: 'text/html',
+            droptarget: 'experiencefragment',
+            resourceType: 'mysite/components/experiencefragment',
+          },
+        ],
+      };
+
+      plugin.generatePolicy('container', policyConfig);
+
+      const policyPath = path.join(
+        tempDir,
+        'policies',
+        'testsite',
+        'components',
+        'container',
+        '.content.xml'
+      );
+      const xml = fs.readFileSync(policyPath, 'utf8');
+
+      expect(xml).toContain('cq:authoring');
+      expect(xml).toContain('assetToComponentMapping');
+      expect(xml).toContain('assetGroup="media"');
+      expect(xml).toContain('assetMimetype="image/*"');
+      expect(xml).toContain('droptarget="image"');
+      expect(xml).toContain('resourceType="mysite/components/image"');
+      expect(xml).toContain('assetGroup="content"');
+      expect(xml).toContain('assetMimetype="text/html"');
+      expect(xml).toContain('droptarget="experiencefragment"');
+    });
+  });
+
+  describe('Full Integration', () => {
+    test('should process designDialog.json and generate files', () => {
+      // Create component directory
+      const componentDir = path.join(tempDir, 'button');
+      fs.mkdirSync(componentDir, { recursive: true });
+
+      // Create designDialog.json
+      const designDialog = {
+        title: 'Button Design',
+        layout: 'simple',
+        fields: [
+          {
+            type: 'checkbox',
+            name: './enableVariants',
+            label: 'Enable Variants',
+          },
+        ],
+        policy: {
+          name: 'policy_button',
+          title: 'Button Policy',
+          properties: {
+            allowedVariants: '[primary,secondary]',
+          },
+          styleGroups: [
+            {
+              name: 'variants',
+              label: 'Button Variants',
+              styles: [
+                {
+                  name: 'primary',
+                  label: 'Primary',
+                  classes: 'cmp-button--primary',
+                },
+              ],
+            },
+          ],
+        },
+      };
+
+      fs.writeFileSync(
+        path.join(componentDir, 'designDialog.json'),
+        JSON.stringify(designDialog, null, 2)
+      );
+
+      // Run generation
+      plugin.generateDialogs();
+
+      // Check design dialog was created
+      const designDialogPath = path.join(
+        tempDir,
+        'target',
+        'button',
+        '_cq_design_dialog',
+        '.content.xml'
+      );
+      expect(fs.existsSync(designDialogPath)).toBe(true);
+
+      const designDialogXml = fs.readFileSync(designDialogPath, 'utf8');
+      expect(designDialogXml).toContain('jcr:title="Button Design"');
+      expect(designDialogXml).toContain('name="./enableVariants"');
+
+      // Check policy was created
+      const policyPath = path.join(
+        tempDir,
+        'policies',
+        'testsite',
+        'components',
+        'button',
+        '.content.xml'
+      );
+      expect(fs.existsSync(policyPath)).toBe(true);
+
+      const policyXml = fs.readFileSync(policyPath, 'utf8');
+      expect(policyXml).toContain('jcr:title="Button Policy"');
+      expect(policyXml).toContain('allowedVariants="[primary,secondary]"');
+      expect(policyXml).toContain('cq:styleGroups');
+    });
+
+    test('should not generate policy when generatePolicies is false', () => {
+      const pluginNoPolicy = new AemDialogGeneratorPlugin({
+        sourceDir: tempDir,
+        targetDir: path.join(tempDir, 'target'),
+        policiesTargetDir: path.join(tempDir, 'policies'),
+        appName: 'testsite',
+        generatePolicies: false,
+      });
+
+      // Create component directory
+      const componentDir = path.join(tempDir, 'button');
+      fs.mkdirSync(componentDir, { recursive: true });
+
+      // Create designDialog.json with policy
+      const designDialog = {
+        title: 'Button Design',
+        fields: [],
+        policy: {
+          name: 'policy_button',
+          title: 'Button Policy',
+        },
+      };
+
+      fs.writeFileSync(
+        path.join(componentDir, 'designDialog.json'),
+        JSON.stringify(designDialog)
+      );
+
+      // Run generation
+      pluginNoPolicy.generateDialogs();
+
+      // Check policy was NOT created
+      const policyPath = path.join(
+        tempDir,
+        'policies',
+        'button',
+        '.content.xml'
+      );
+      expect(fs.existsSync(policyPath)).toBe(false);
+
+      // But design dialog should still be created
+      const designDialogPath = path.join(
+        tempDir,
+        'target',
+        'button',
+        '_cq_design_dialog',
+        '.content.xml'
+      );
+      expect(fs.existsSync(designDialogPath)).toBe(true);
+    });
+  });
+});
+
+describe('Indentation Tests', () => {
+  let plugin;
+
+  beforeEach(() => {
+    plugin = new AemDialogGeneratorPlugin();
+  });
+
+  describe('Design Dialog with Tabs Indentation', () => {
+    test('should have correct indentation for tabs at level 4', () => {
+      const config = {
+        title: 'Test Design Dialog',
+        layout: 'tabs',
+        tabs: [
+          {
+            title: 'Tab 1',
+            fields: [
+              {
+                type: 'textfield',
+                name: './field1',
+                label: 'Field 1',
+              },
+            ],
+          },
+        ],
+      };
+
+      const xml = plugin.generateDesignDialogXml(config, 'test');
+
+      // Verify tab node is at correct level (4 levels = 16 spaces)
+      expect(xml).toMatch(/\n {16}<tab_1/);
+
+      // Verify items inside tab are at level 5 (20 spaces)
+      expect(xml).toMatch(/\n {20}<items jcr:primaryType="nt:unstructured">/);
+
+      // Verify columns are at level 6 (24 spaces)
+      expect(xml).toMatch(/\n {24}<columns/);
+
+      // Verify fields are at level 10 (40 spaces)
+      expect(xml).toMatch(/\n {40}<field1/);
+    });
+
+    test('should have correct indentation for multiple tabs', () => {
+      const config = {
+        title: 'Multi Tab Dialog',
+        layout: 'tabs',
+        tabs: [
+          {
+            title: 'Display Options',
+            fields: [
+              { type: 'checkbox', name: './showImage', label: 'Show Image' },
+            ],
+          },
+          {
+            title: 'Layout Settings',
+            fields: [{ type: 'select', name: './layout', label: 'Layout' }],
+          },
+        ],
+      };
+
+      const xml = plugin.generateDesignDialogXml(config, 'test');
+
+      // Both tabs should be at same level (4 = 16 spaces)
+      expect(xml).toMatch(/\n {16}<display_options/);
+      expect(xml).toMatch(/\n {16}<layout_settings/);
+    });
+  });
+
+  describe('Regular Dialog with Tabs Indentation', () => {
+    test('should have correct indentation for tabs at level 5', () => {
+      const config = {
+        title: 'Regular Dialog',
+        tabs: [
+          {
+            title: 'Properties',
+            fields: [
+              {
+                type: 'textfield',
+                name: './title',
+                label: 'Title',
+              },
+            ],
+          },
+        ],
+      };
+
+      const xml = plugin.generateDialogXml(config, 'test');
+
+      // In regular dialog, tabs are at level 5 (20 spaces)
+      expect(xml).toMatch(/\n {20}<properties/);
+
+      // Fields in regular dialog tabs are at level 11 (44 spaces)
+      expect(xml).toMatch(/\n {44}<title/);
+    });
+  });
+
+  describe('Simple Layout Indentation', () => {
+    test('should have correct indentation for simple layout fields', () => {
+      const config = {
+        title: 'Simple Dialog',
+        layout: 'simple',
+        fields: [
+          {
+            type: 'textfield',
+            name: './text',
+            label: 'Text',
+          },
+        ],
+      };
+
+      const xml = plugin.generateDialogXml(config, 'test');
+
+      // Fields in simple layout are at level 7 (28 spaces)
+      expect(xml).toMatch(/\n {28}<text/);
+    });
+
+    test('should have correct indentation for design dialog simple layout', () => {
+      const config = {
+        title: 'Simple Design Dialog',
+        layout: 'simple',
+        fields: [
+          {
+            type: 'checkbox',
+            name: './enabled',
+            label: 'Enabled',
+          },
+        ],
+      };
+
+      const xml = plugin.generateDesignDialogXml(config, 'test');
+
+      // Fields in simple design dialog are at level 7 (28 spaces)
+      expect(xml).toMatch(/\n {28}<enabled/);
+    });
+  });
+
+  describe('Nested Structures Indentation', () => {
+    test('should maintain correct indentation for nested fieldsets', () => {
+      const config = {
+        title: 'Dialog with Fieldset',
+        layout: 'simple',
+        fields: [
+          {
+            type: 'fieldset',
+            label: 'Settings',
+            fields: [
+              {
+                type: 'textfield',
+                name: './setting1',
+                label: 'Setting 1',
+              },
+            ],
+          },
+        ],
+      };
+
+      const xml = plugin.generateDialogXml(config, 'test');
+
+      // Fieldset should be at level 7 (28 spaces) - uses deterministic node name
+      expect(xml).toMatch(/\n {28}<fieldset_\d+/);
+
+      // Nested field should be at level 9 (36 spaces)
+      expect(xml).toMatch(/\n {36}<setting1/);
+    });
+
+    test('should maintain correct indentation for multifield items', () => {
+      const config = {
+        title: 'Dialog with Multifield',
+        layout: 'simple',
+        fields: [
+          {
+            type: 'multifield',
+            name: './items',
+            label: 'Items',
+            fields: [
+              {
+                type: 'textfield',
+                name: './item',
+                label: 'Item',
+              },
+            ],
+          },
+        ],
+      };
+
+      const xml = plugin.generateDialogXml(config, 'test');
+
+      // Multifield should be at level 7 (28 spaces)
+      expect(xml).toMatch(/\n {28}<items/);
+
+      // Nested field node inside multifield should be at level 8 (32 spaces)
+      expect(xml).toMatch(/\n {32}<field/);
+    });
+  });
+
+  describe('Accordion Layout Indentation', () => {
+    test('should have correct indentation for accordion items', () => {
+      const config = {
+        title: 'Accordion Dialog',
+        layout: 'accordion',
+        tabs: [
+          {
+            title: 'Section 1',
+            fields: [
+              {
+                type: 'textfield',
+                name: './field',
+                label: 'Field',
+              },
+            ],
+          },
+        ],
+      };
+
+      const xml = plugin.generateDialogXml(config, 'test');
+
+      // Accordion items are at level 5 (20 spaces)
+      expect(xml).toMatch(/\n {20}<section_1/);
+
+      // Fields inside accordion are at level 7 (28 spaces)
+      expect(xml).toMatch(/\n {28}<field/);
+    });
+  });
+
+  describe('Edge Cases', () => {
+    test('should handle empty tabs gracefully', () => {
+      const config = {
+        title: 'Empty Tab Dialog',
+        tabs: [
+          {
+            title: 'Empty Tab',
+            fields: [],
+          },
+        ],
+      };
+
+      const xml = plugin.generateDialogXml(config, 'test');
+
+      // Should still generate tab structure with correct indentation
+      expect(xml).toMatch(/\n {20}<empty_tab/);
+      expect(xml).toContain('<items jcr:primaryType="nt:unstructured">');
+    });
+
+    test('should maintain indentation consistency across complex structures', () => {
+      const config = {
+        title: 'Complex Dialog',
+        tabs: [
+          {
+            title: 'Tab 1',
+            fields: [
+              {
+                type: 'fieldset',
+                label: 'Group',
+                fields: [
+                  {
+                    type: 'multifield',
+                    name: './list',
+                    fields: [
+                      {
+                        type: 'textfield',
+                        name: './item',
+                        label: 'Item',
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+      const xml = plugin.generateDialogXml(config, 'test');
+
+      // Each level should maintain proper 4-space increments
+      const lines = xml.split('\n');
+      const indentedLines = lines.filter((line) => line.trim().startsWith('<'));
+
+      indentedLines.forEach((line) => {
+        const spaces = line.match(/^ */)[0].length;
+        // All indentation should be multiples of 4
+        expect(spaces % 4).toBe(0);
+      });
+    });
   });
 });

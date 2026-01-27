@@ -1,7 +1,7 @@
 {
   "name": "aem-dialog-generator-plugin",
-  "version": "1.1.5",
-  "description": "Webpack plugin that automatically generates AEM component dialog XML files from JSON configurations",
+  "version": "2.0.0",
+  "description": "Webpack plugin that automatically generates AEM component dialog XML, design dialogs, and policies from JSON configurations",
   "main": "aem-dialog-generator-plugin.js",
   "scripts": {
     "test": "jest",
@@ -23,6 +23,10 @@
     "webpack",
     "webpack-plugin",
     "dialog",
+    "design-dialog",
+    "policy",
+    "style-system",
+    "rte",
     "granite-ui",
     "touch-ui",
     "component-dialog",

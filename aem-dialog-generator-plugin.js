@@ -6,12 +6,15 @@ const crypto = require('node:crypto');
 
 class AemDialogGeneratorPlugin {
   constructor(options = {}) {
+    this._baseIndentLevel = 0;
+    this._indentStack = [];
+    
     this.I = {
-      F: 11, // FIELD: Fields inside column <items>
-      FA: 12, // FIELD_ATTR: Field attributes
-      FN: 12, // FIELD_NESTED: Internal field nodes (items, rtePlugins, etc)
-      FNI: 13, // FIELD_NESTED_ITEM: Items inside internal nodes
-      MI: 14, // MULTIFIELD_ITEM: Items inside composite multifield
+      F: 0, // FIELD: Field base (relative to current base)
+      FA: 1, // FIELD_ATTR: Field attributes (+1 from field)
+      FN: 1, // FIELD_NESTED: Internal field nodes (+1 from field)
+      FNI: 2, // FIELD_NESTED_ITEM: Items inside internal nodes (+2 from field)
+      MI: 3, // MULTIFIELD_ITEM: Items inside composite multifield (+3 from field)
     };
 
     this._fieldCounter = 0;
@@ -27,10 +30,25 @@ class AemDialogGeneratorPlugin {
           '../ui.apps/src/main/content/jcr_root/apps/mysite/components'
         ),
       dialogFileName: options.dialogFileName || 'dialog.json',
+      designDialogFileName: options.designDialogFileName || 'designDialog.json',
       appName: options.appName || 'mysite',
       useFolderStructure:
         options.useFolderStructure === undefined || options.useFolderStructure,
       verbose: options.verbose || false,
+      generatePolicies: options.generatePolicies !== false,
+      policiesTargetDir:
+        options.policiesTargetDir ||
+        path.resolve(
+          __dirname,
+          '../ui.content/src/main/content/jcr_root/conf/mysite/settings/wcm/policies'
+        ),
+      templatePoliciesDir:
+        options.templatePoliciesDir ||
+        path.resolve(
+          __dirname,
+          '../ui.content/src/main/content/jcr_root/conf/mysite/settings/wcm/templates'
+        ),
+      autoMapPoliciesToTemplates: options.autoMapPoliciesToTemplates !== false,
     };
   }
 
@@ -97,7 +115,7 @@ class AemDialogGeneratorPlugin {
       );
 
       if (fs.existsSync(dialogJsonPath)) {
-        this.log(`Processing: ${componentName}`);
+        this.log(`Processing dialog: ${componentName}`);
 
         try {
           const dialogConfig = JSON.parse(
@@ -127,16 +145,66 @@ class AemDialogGeneratorPlugin {
 
           fs.writeFileSync(xmlFilePath, xmlContent, 'utf8');
 
-          this.log(`✓ Generated: ${xmlFilePath}`);
+          this.log(`✓ Generated dialog: ${xmlFilePath}`);
         } catch (error) {
           this.log(`✗ Error processing ${componentName}: ${error.message}`);
+        }
+      }
+
+      const designDialogJsonPath = path.join(
+        sourceDir,
+        componentName,
+        this.options.designDialogFileName
+      );
+
+      if (fs.existsSync(designDialogJsonPath)) {
+        this.log(`Processing design dialog: ${componentName}`);
+
+        try {
+          const designDialogConfig = JSON.parse(
+            fs.readFileSync(designDialogJsonPath, 'utf8')
+          );
+          const xmlContent = this.generateDesignDialogXml(
+            designDialogConfig,
+            componentName
+          );
+
+          const componentTargetDir = path.join(targetDir, componentName);
+          if (!fs.existsSync(componentTargetDir)) {
+            fs.mkdirSync(componentTargetDir, { recursive: true });
+          }
+
+          let xmlFilePath;
+
+          if (this.options.useFolderStructure) {
+            const designDialogDir = path.join(componentTargetDir, '_cq_design_dialog');
+            if (!fs.existsSync(designDialogDir)) {
+              fs.mkdirSync(designDialogDir, { recursive: true });
+            }
+            xmlFilePath = path.join(designDialogDir, '.content.xml');
+          } else {
+            xmlFilePath = path.join(componentTargetDir, '_cq_design_dialog.xml');
+          }
+
+          fs.writeFileSync(xmlFilePath, xmlContent, 'utf8');
+
+          this.log(`✓ Generated design dialog: ${xmlFilePath}`);
+
+          if (this.options.generatePolicies && designDialogConfig.policy) {
+            this.generatePolicy(componentName, designDialogConfig.policy);
+            
+            if (this.options.autoMapPoliciesToTemplates && designDialogConfig.policy.templates) {
+              this.mapPolicyToTemplates(componentName, designDialogConfig.policy);
+            }
+          }
+        } catch (error) {
+          this.log(`✗ Error processing design dialog ${componentName}: ${error.message}`);
         }
       }
     }
   }
 
   generateDialogXml(config, componentName) {
-    // Reset field counter for deterministic field names
     this._fieldCounter = 0;
     
     const {
@@ -204,9 +272,14 @@ class AemDialogGeneratorPlugin {
       ]);
 
       const dialogFields = fields.length > 0 ? fields : items;
-      for (const field of dialogFields) {
-        xml += this.generateField(field);
-      }
+
+      xml += this.withIndentLevel(7, () => {
+        let result = '';
+        for (const field of dialogFields) {
+          result += this.generateField(field);
+        }
+        return result;
+      });
 
       xml += this.closeNodes([
         [6, 'items'],
@@ -230,8 +303,12 @@ class AemDialogGeneratorPlugin {
         [4, 'items'],
       ]);
 
-      tabs.forEach((item, index) => {
-        xml += this.generateAccordionItem(item, index);
+      xml += this.withIndentLevel(4, () => {
+        let result = '';
+        tabs.forEach((item, index) => {
+          result += this.generateAccordionItem(item, index);
+        });
+        return result;
       });
 
       xml += this.closeNodes([
@@ -253,8 +330,12 @@ class AemDialogGeneratorPlugin {
         [4, 'items'],
       ]);
 
-      tabs.forEach((tab, index) => {
-        xml += this.generateTab(tab, index);
+      xml += this.withIndentLevel(4, () => {
+        let result = '';
+        tabs.forEach((tab, index) => {
+          result += this.generateTab(tab, index);
+        });
+        return result;
       });
 
       xml += this.closeNodes([
@@ -294,12 +375,13 @@ class AemDialogGeneratorPlugin {
       maximized: '{Boolean}true',
     };
 
-    let xml = this.buildNode(5, tabName, attributes, 'none');
+    const tabLevel = this.getIndentLevel(1);
+    let xml = this.buildNode(tabLevel, tabName, attributes, 'none');
 
     if (showIf && showIf.field && showIf.value !== undefined) {
       xml = this.appendAttribute(
         xml,
-        6,
+        tabLevel + 1,
         {
           'granite:hide': `\${!${showIf.field} || ${showIf.field} != '${showIf.value}'}`,
         },
@@ -309,9 +391,9 @@ class AemDialogGeneratorPlugin {
 
     xml = this.openBlock(xml);
     xml += this.buildNodes([
-      [6, 'items'],
+      [tabLevel + 1, 'items'],
       [
-        7,
+        tabLevel + 2,
         'columns',
         {
           'sling:resourceType':
@@ -319,29 +401,33 @@ class AemDialogGeneratorPlugin {
           margin: '{Boolean}true',
         },
       ],
-      [8, 'items'],
+      [tabLevel + 3, 'items'],
       [
-        9,
+        tabLevel + 4,
         'column',
         {
           'sling:resourceType':
             'granite/ui/components/coral/foundation/container',
         },
       ],
-      [10, 'items'],
+      [tabLevel + 5, 'items'],
     ]);
 
-    for (const field of tabFields) {
-      xml += this.generateField(field);
-    }
+    xml += this.withIndentLevel(tabLevel + 6, () => {
+      let result = '';
+      for (const field of tabFields) {
+        result += this.generateField(field);
+      }
+      return result;
+    });
 
     xml += this.closeNodes([
-      [10, 'items'],
-      [9, 'column'],
-      [8, 'items'],
-      [7, 'columns'],
-      [6, 'items'],
-      [5, tabName],
+      [tabLevel + 5, 'items'],
+      [tabLevel + 4, 'column'],
+      [tabLevel + 3, 'items'],
+      [tabLevel + 2, 'columns'],
+      [tabLevel + 1, 'items'],
+      [tabLevel, tabName],
     ]);
 
     return xml;
@@ -367,17 +453,25 @@ class AemDialogGeneratorPlugin {
       margin: '{Boolean}true',
     };
 
-    let xml = this.buildNode(5, itemName, attributes, 'open');
-    xml += this.buildNode(6, 'items', {}, 'open');
+    const tabLevel = this.getIndentLevel(1);
+    const itemsLevel = this.getIndentLevel(2);
+    
+    let xml = this.buildNode(tabLevel, itemName, attributes, 'open');
+    xml += this.buildNode(itemsLevel, 'items', {}, 'open');
 
     const fieldsArray = fields.length > 0 ? fields : items;
-    for (const field of fieldsArray) {
-      xml += this.generateField(field);
-    }
+
+    xml += this.withIndentLevel(this.getIndentLevel(3), () => {
+      let result = '';
+      for (const field of fieldsArray) {
+        result += this.generateField(field);
+      }
+      return result;
+    });
 
     xml += this.closeNodes([
-      [6, 'items'],
-      [5, itemName],
+      [itemsLevel, 'items'],
+      [tabLevel, itemName],
     ]);
 
     return xml;
@@ -506,7 +600,7 @@ class AemDialogGeneratorPlugin {
     const nodeName = this.sanitizeNodeName(fieldName);
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       nodeName,
       { 'sling:resourceType': resourceType },
       'none'
@@ -549,12 +643,12 @@ class AemDialogGeneratorPlugin {
     }
 
     if (graniteClasses.length > 0) {
-      xml = this.appendAttribute(xml, this.I.FA, {
+      xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
         'granite:class': graniteClasses.join(' '),
       });
     }
 
-    xml = this.appendAttribute(xml, this.I.FA, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
       fieldLabel: label,
       'sling:orderBefore': orderBefore,
     });
@@ -562,7 +656,7 @@ class AemDialogGeneratorPlugin {
     if (showIf && showIf.field && showIf.value !== undefined) {
       xml = this.appendAttribute(
         xml,
-        this.I.FA,
+        this.getIndentLevel(this.I.FA),
         {
           'granite:hide': `\${!${showIf.field} || ${showIf.field} != '${showIf.value}'}`,
         },
@@ -571,7 +665,7 @@ class AemDialogGeneratorPlugin {
     } else if (hideIf && hideIf.field && hideIf.value !== undefined) {
       xml = this.appendAttribute(
         xml,
-        this.I.FA,
+        this.getIndentLevel(this.I.FA),
         {
           'granite:hide': `\${${hideIf.field} && ${hideIf.field} == '${hideIf.value}'}`,
         },
@@ -589,7 +683,7 @@ class AemDialogGeneratorPlugin {
 
       xml = this.appendAttribute(
         xml,
-        this.I.FA,
+        this.getIndentLevel(this.I.FA),
         {
           fieldDescription: description,
           'granite:data-help': helpText,
@@ -605,7 +699,7 @@ class AemDialogGeneratorPlugin {
     } else {
       xml = this.appendAttribute(
         xml,
-        this.I.FA,
+        this.getIndentLevel(this.I.FA),
         {
           fieldDescription: description,
           width,
@@ -618,7 +712,7 @@ class AemDialogGeneratorPlugin {
       );
     }
 
-    xml = this.appendAttribute(xml, this.I.FA, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
       name: fieldName,
       typeHint,
       requiredMessage,
@@ -626,20 +720,20 @@ class AemDialogGeneratorPlugin {
 
     xml = this.appendAttribute(
       xml,
-      this.I.FA,
+      this.getIndentLevel(this.I.FA),
       { renderHidden, required, disabled, readOnly },
       { isBoolean: true }
     );
 
     if (validation) {
-      xml = this.appendAttribute(xml, this.I.FA, {
+      xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
         validation: validation.pattern,
         validationMessage: validation.message,
       });
     }
     xml = this.appendAttribute(
       xml,
-      this.I.FA,
+      this.getIndentLevel(this.I.FA),
       {
         minMessage,
         maxMessage,
@@ -657,7 +751,7 @@ class AemDialogGeneratorPlugin {
     if (type === 'select') {
       xml = this.appendAttribute(
         xml,
-        this.I.FA,
+        this.getIndentLevel(this.I.FA),
         {
           emptyOption,
           forceSelection,
@@ -668,7 +762,7 @@ class AemDialogGeneratorPlugin {
 
     xml = this.appendAttribute(
       xml,
-      this.I.FA,
+      this.getIndentLevel(this.I.FA),
       {
         multiple: multiple && type === 'select',
         autofocus: autoFocus,
@@ -677,7 +771,7 @@ class AemDialogGeneratorPlugin {
       },
       { isBoolean: true }
     );
-    xml = this.appendAttribute(xml, this.I.FA, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
       autocomplete,
       ariaLabel,
       ariaDescribedBy,
@@ -691,10 +785,10 @@ class AemDialogGeneratorPlugin {
           dataAttrs[`granite:data-${dk}`] = dv.toString();
         }
       }
-      xml = this.appendAttribute(xml, this.I.FA, dataAttrs);
+      xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), dataAttrs);
     }
 
-    xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'options',
       'fields',
       'cqShowHide',
@@ -744,13 +838,12 @@ class AemDialogGeneratorPlugin {
 
     if (options && Array.isArray(options) && options.length > 0) {
       xml = this.openBlock(xml);
-      xml += this.buildNode(this.I.FN, 'items', {}, 'open');
-      xml += this.appendOptions(options, this.I.FNI);
-      xml += this.closeNode(this.I.FN, 'items');
+      xml += this.buildNode(this.getIndentLevel(this.I.FN), 'items', {}, 'open');
+      xml += this.appendOptions(options, this.getIndentLevel(this.I.FNI));
+      xml += this.closeNode(this.getIndentLevel(this.I.FN), 'items');
       
-      // Add granite:data node for showhide functionality
       if (cqShowHide && showhideTarget) {
-        xml += this.buildNode(this.I.FN, 'granite:data', {
+        xml += this.buildNode(this.getIndentLevel(this.I.FN), 'granite:data', {
           'jcr:primaryType': 'nt:unstructured',
           ...(type === 'select' && { 'cq-dialog-dropdown-showhide-target': showhideTarget }),
           ...(type === 'checkbox' && { 'cq-dialog-checkbox-showhide-target': showhideTarget }),
@@ -758,7 +851,7 @@ class AemDialogGeneratorPlugin {
       }
       
       if (type === 'select' && datasource) {
-        xml += this.buildNode(this.I.FN, 'datasource', {
+        xml += this.buildNode(this.getIndentLevel(this.I.FN), 'datasource', {
           'sling:resourceType': datasource,
         });
       }
@@ -779,7 +872,7 @@ class AemDialogGeneratorPlugin {
           renderCondition.conditions.length > 0
         ) {
           xml += this.buildNode(
-            this.I.FN,
+            this.getIndentLevel(this.I.FN),
             'granite:rendercondition',
             { 'sling:resourceType': rcRes },
             'open'
@@ -789,7 +882,7 @@ class AemDialogGeneratorPlugin {
             const childRes = rcMap[cond.type || 'simple'] || rcMap.simple;
             const cn = `cond${++idx}`;
             xml += this.buildNode(
-              this.I.FNI,
+              this.getIndentLevel(this.I.FNI),
               cn,
               { 'sling:resourceType': childRes },
               'none'
@@ -798,22 +891,22 @@ class AemDialogGeneratorPlugin {
               const expr = this.escapeXmlExceptSingleQuote(cond.expression);
               xml = this.appendAttribute(
                 xml,
-                this.I.FNI + 1,
+                this.getIndentLevel(this.I.FNI) + 1,
                 { expression: expr },
                 { preserveSingleQuotes: true }
               );
             }
             if (cond.privilege) {
-              xml = this.appendAttribute(xml, this.I.FNI + 1, {
+              xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FNI) + 1, {
                 privilege: cond.privilege,
               });
             }
             xml = this.selfClose(xml);
           }
-          xml += this.closeNode(this.I.FN, 'granite:rendercondition');
+          xml += this.closeNode(this.getIndentLevel(this.I.FN), 'granite:rendercondition');
         } else {
           xml += this.buildNode(
-            this.I.FN,
+            this.getIndentLevel(this.I.FN),
             'granite:rendercondition',
             { 'sling:resourceType': rcRes },
             'none'
@@ -824,20 +917,20 @@ class AemDialogGeneratorPlugin {
             );
             xml = this.appendAttribute(
               xml,
-              this.I.FNI,
+              this.getIndentLevel(this.I.FNI),
               { expression: expr },
               { preserveSingleQuotes: true }
             );
           }
           if (renderCondition.privilege) {
-            xml = this.appendAttribute(xml, this.I.FNI, {
+            xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FNI), {
               privilege: renderCondition.privilege,
             });
           }
           xml = this.selfClose(xml);
         }
       }
-      xml += this.closeNode(this.I.F, nodeName);
+      xml += this.closeNode(this.getIndentLevel(this.I.F), nodeName);
     } else if (
       (type === 'select' && datasource) ||
       (renderCondition && renderCondition.type) ||
@@ -845,9 +938,8 @@ class AemDialogGeneratorPlugin {
     ) {
       xml = this.openBlock(xml);
       
-      // Add granite:data node for showhide functionality
       if (cqShowHide && showhideTarget) {
-        xml += this.buildNode(this.I.FN, 'granite:data', {
+        xml += this.buildNode(this.getIndentLevel(this.I.FN), 'granite:data', {
           'jcr:primaryType': 'nt:unstructured',
           ...(type === 'select' && { 'cq-dialog-dropdown-showhide-target': showhideTarget }),
           ...(type === 'checkbox' && { 'cq-dialog-checkbox-showhide-target': showhideTarget }),
@@ -855,7 +947,7 @@ class AemDialogGeneratorPlugin {
       }
       
       if (type === 'select' && datasource) {
-        xml += this.buildNode(this.I.FN, 'datasource', {
+        xml += this.buildNode(this.getIndentLevel(this.I.FN), 'datasource', {
           'sling:resourceType': datasource,
         });
       }
@@ -876,7 +968,7 @@ class AemDialogGeneratorPlugin {
           renderCondition.conditions.length > 0
         ) {
           xml += this.buildNode(
-            this.I.FN,
+            this.getIndentLevel(this.I.FN),
             'granite:rendercondition',
             { 'sling:resourceType': rcRes },
             'open'
@@ -886,7 +978,7 @@ class AemDialogGeneratorPlugin {
             const childRes = rcMap[cond.type || 'simple'] || rcMap.simple;
             const cn = `cond${++idx}`;
             xml += this.buildNode(
-              this.I.FNI,
+              this.getIndentLevel(this.I.FNI),
               cn,
               { 'sling:resourceType': childRes },
               'none'
@@ -895,22 +987,22 @@ class AemDialogGeneratorPlugin {
               const expr = this.escapeXmlExceptSingleQuote(cond.expression);
               xml = this.appendAttribute(
                 xml,
-                this.I.FNI + 1,
+                this.getIndentLevel(this.I.FNI) + 1,
                 { expression: expr },
                 { preserveSingleQuotes: true }
               );
             }
             if (cond.privilege) {
-              xml = this.appendAttribute(xml, this.I.FNI + 1, {
+              xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FNI) + 1, {
                 privilege: cond.privilege,
               });
             }
             xml = this.selfClose(xml);
           }
-          xml += this.closeNode(this.I.FN, 'granite:rendercondition');
+          xml += this.closeNode(this.getIndentLevel(this.I.FN), 'granite:rendercondition');
         } else {
           xml += this.buildNode(
-            this.I.FN,
+            this.getIndentLevel(this.I.FN),
             'granite:rendercondition',
             { 'sling:resourceType': rcRes },
             'none'
@@ -921,20 +1013,20 @@ class AemDialogGeneratorPlugin {
             );
             xml = this.appendAttribute(
               xml,
-              this.I.FNI,
+              this.getIndentLevel(this.I.FNI),
               { expression: expr },
               { preserveSingleQuotes: true }
             );
           }
           if (renderCondition.privilege) {
-            xml = this.appendAttribute(xml, this.I.FNI, {
+            xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FNI), {
               privilege: renderCondition.privilege,
             });
           }
           xml = this.selfClose(xml);
         }
       }
-      xml += this.closeNode(this.I.F, nodeName);
+      xml += this.closeNode(this.getIndentLevel(this.I.F), nodeName);
     } else {
       xml = this.selfClose(xml);
     }
@@ -1020,7 +1112,7 @@ class AemDialogGeneratorPlugin {
     const nestedFields = fields.length > 0 ? fields : items;
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       nodeName,
       {
         'sling:resourceType': resourceType,
@@ -1029,29 +1121,29 @@ class AemDialogGeneratorPlugin {
     );
 
     if (showhideClass) {
-      xml = this.appendAttribute(xml, this.I.FA, {
+      xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
         'granite:class': `hide ${showhideClass}`,
       });
     }
 
     if (label && type === 'fieldset') {
-      xml = this.appendAttribute(xml, this.I.FA, { 'jcr:title': label });
+      xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), { 'jcr:title': label });
     }
 
     if (description) {
-      xml = this.appendAttribute(xml, this.I.FA, {
+      xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
         fieldDescription: description,
       });
     }
 
     xml = this.appendAttribute(
       xml,
-      this.I.FA,
+      this.getIndentLevel(this.I.FA),
       { collapsible },
       { isBoolean: true }
     );
 
-    xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'fields',
       'items',
@@ -1062,15 +1154,14 @@ class AemDialogGeneratorPlugin {
 
     xml = this.openBlock(xml);
     
-    // Add granite:data node for showhidetargetvalue if specified
     if (showhidetargetvalue) {
-      xml += this.buildNode(this.I.FN, 'granite:data', {
+      xml += this.buildNode(this.getIndentLevel(this.I.FN), 'granite:data', {
         'jcr:primaryType': 'nt:unstructured',
         'showhidetargetvalue': showhidetargetvalue,
       });
     }
     
-    xml += this.buildNode(this.I.FN, 'items', {}, 'open');
+    xml += this.buildNode(this.getIndentLevel(this.I.FN), 'items', {}, 'open');
 
     xml += this.withAdjustedIndentation(0, 1, () => {
       let nestedXml = '';
@@ -1080,8 +1171,8 @@ class AemDialogGeneratorPlugin {
       return nestedXml;
     });
 
-    xml += this.closeNode(this.I.FN, 'items');
-    xml += this.closeNode(this.I.F, nodeName);
+    xml += this.closeNode(this.getIndentLevel(this.I.FN), 'items');
+    xml += this.closeNode(this.getIndentLevel(this.I.F), nodeName);
 
     return xml;
   }
@@ -1101,20 +1192,20 @@ class AemDialogGeneratorPlugin {
       'none'
     );
 
-    xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'columns',
     ]);
 
     xml = this.openBlock(xml);
-    xml += this.buildNode(this.I.FN, 'items', {}, 'open');
+    xml += this.buildNode(this.getIndentLevel(this.I.FN), 'items', {}, 'open');
 
     for (const [index, column] of columns.entries()) {
       const columnName = column.name || `column${index + 1}`;
       const columnFields = column.fields || [];
 
       xml += this.buildNode(
-        this.I.FNI,
+        this.getIndentLevel(this.I.FNI),
         columnName,
         {
           'sling:resourceType':
@@ -1123,7 +1214,7 @@ class AemDialogGeneratorPlugin {
         'none'
       );
       xml = this.openBlock(xml);
-      xml += this.buildNode(this.I.FNI + 1, 'items', {}, 'open');
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI) + 1, 'items', {}, 'open');
 
       xml += this.withAdjustedIndentation(2, 3, () => {
         let nestedXml = '';
@@ -1134,13 +1225,13 @@ class AemDialogGeneratorPlugin {
       });
 
       xml += this.closeNodes([
-        [this.I.FNI + 1, 'items'],
-        [this.I.FNI, columnName],
+        [this.getIndentLevel(this.I.FNI) + 1, 'items'],
+        [this.getIndentLevel(this.I.FNI), columnName],
       ]);
     }
 
     xml += this.closeNodes([
-      [this.I.FN, 'items'],
+      [this.getIndentLevel(this.I.FN), 'items'],
       [this.I.F, nodeName],
     ]);
 
@@ -1161,14 +1252,14 @@ class AemDialogGeneratorPlugin {
       'none'
     );
 
-    xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'fields',
       'items',
     ]);
 
     xml = this.openBlock(xml);
-    xml += this.buildNode(this.I.FN, 'items', {}, 'open');
+    xml += this.buildNode(this.getIndentLevel(this.I.FN), 'items', {}, 'open');
 
     xml += this.withAdjustedIndentation(0, 1, () => {
       let nestedXml = '';
@@ -1179,7 +1270,7 @@ class AemDialogGeneratorPlugin {
     });
 
     xml += this.closeNodes([
-      [this.I.FN, 'items'],
+      [this.getIndentLevel(this.I.FN), 'items'],
       [this.I.F, sanitizedName],
     ]);
 
@@ -1199,12 +1290,12 @@ class AemDialogGeneratorPlugin {
       'none'
     );
 
-    xml = this.appendAttribute(xml, this.I.FA, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
       text,
       level: `{Long}${level}`,
     });
 
-    xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'text',
       'level',
@@ -1227,11 +1318,11 @@ class AemDialogGeneratorPlugin {
       { 'sling:resourceType': resourceType },
       'none'
     );
-    xml = this.appendAttribute(xml, this.I.FA, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
       text,
       variant,
     });
-    xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'text',
       'variant',
@@ -1263,7 +1354,7 @@ class AemDialogGeneratorPlugin {
       'none'
     );
 
-    xml = this.appendAttribute(xml, this.I.FA, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
       fieldLabel: label,
       fieldDescription: description,
       name: fieldName,
@@ -1272,11 +1363,11 @@ class AemDialogGeneratorPlugin {
 
     xml = this.appendAttribute(
       xml,
-      this.I.FA,
+      this.getIndentLevel(this.I.FA),
       { required },
       { isBoolean: true }
     );
-    xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'rootPath',
     ]);
@@ -1311,7 +1402,7 @@ class AemDialogGeneratorPlugin {
       'none'
     );
 
-    xml = this.appendAttribute(xml, this.I.FA, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
       fieldLabel: label,
       fieldDescription: description,
       name: fieldName,
@@ -1322,26 +1413,26 @@ class AemDialogGeneratorPlugin {
 
     xml = this.appendAttribute(
       xml,
-      this.I.FA,
+      this.getIndentLevel(this.I.FA),
       { required },
       { isBoolean: true }
     );
     xml = this.appendAttribute(
       xml,
-      this.I.FA,
+      this.getIndentLevel(this.I.FA),
       { allowUpload },
       { allowFalsy: true }
     );
 
     if (mimeTypes && Array.isArray(mimeTypes)) {
-      xml = this.appendAttribute(xml, this.I.FA, { mimeTypes });
+      xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), { mimeTypes });
     } else {
-      xml = this.appendAttribute(xml, this.I.FA, {
+      xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
         mimeTypes:
           '[image/gif,image/jpeg,image/png,image/webp,image/tiff,image/svg+xml]',
       });
     }
-    xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'uploadUrl',
       'allowUpload',
@@ -1378,7 +1469,7 @@ class AemDialogGeneratorPlugin {
       'none'
     );
 
-    xml = this.appendAttribute(xml, this.I.FA, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
       fieldLabel: label,
       fieldDescription: description,
       name: fieldName,
@@ -1386,23 +1477,23 @@ class AemDialogGeneratorPlugin {
 
     xml = this.appendAttribute(
       xml,
-      this.I.FA,
+      this.getIndentLevel(this.I.FA),
       { required, multiple },
       { isBoolean: true }
     );
     xml = this.appendAttribute(
       xml,
-      this.I.FA,
+      this.getIndentLevel(this.I.FA),
       { forceSelection, ...otherProps },
       { allowFalsy: true }
     );
 
     if (datasource) {
       xml = this.openBlock(xml);
-      xml += this.buildNode(this.I.FN, 'datasource', {
+      xml += this.buildNode(this.getIndentLevel(this.I.FN), 'datasource', {
         'sling:resourceType': datasource,
       });
-      xml += this.closeNode(this.I.F, nodeName);
+      xml += this.closeNode(this.getIndentLevel(this.I.F), nodeName);
     } else {
       xml = this.selfClose(xml);
     }
@@ -1432,7 +1523,7 @@ class AemDialogGeneratorPlugin {
       'none'
     );
 
-    xml = this.appendAttribute(xml, this.I.FA, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
       fieldLabel: label,
       fieldDescription: description,
       name: fieldName,
@@ -1440,11 +1531,11 @@ class AemDialogGeneratorPlugin {
 
     xml = this.appendAttribute(
       xml,
-      this.I.FA,
+      this.getIndentLevel(this.I.FA),
       { required, vertical },
       { isBoolean: true }
     );
-    xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'options',
       'vertical',
@@ -1452,10 +1543,10 @@ class AemDialogGeneratorPlugin {
 
     if (options && Array.isArray(options) && options.length > 0) {
       xml = this.openBlock(xml);
-      xml += this.buildNode(this.I.FN, 'items', {}, 'open');
-      xml += this.appendOptions(options, this.I.FNI);
-      xml += this.closeNode(this.I.FN, 'items');
-      xml += this.closeNode(this.I.F, nodeName);
+      xml += this.buildNode(this.getIndentLevel(this.I.FN), 'items', {}, 'open');
+      xml += this.appendOptions(options, this.getIndentLevel(this.I.FNI));
+      xml += this.closeNode(this.getIndentLevel(this.I.FN), 'items');
+      xml += this.closeNode(this.getIndentLevel(this.I.F), nodeName);
     } else {
       xml = this.selfClose(xml);
     }
@@ -1484,7 +1575,7 @@ class AemDialogGeneratorPlugin {
       'none'
     );
 
-    xml = this.appendAttribute(xml, this.I.FA, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
       fieldLabel: label,
       fieldDescription: description,
       name: fieldName,
@@ -1493,11 +1584,11 @@ class AemDialogGeneratorPlugin {
 
     xml = this.appendAttribute(
       xml,
-      this.I.FA,
+      this.getIndentLevel(this.I.FA),
       { required },
       { isBoolean: true }
     );
-    xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'rootPath',
     ]);
@@ -1529,7 +1620,7 @@ class AemDialogGeneratorPlugin {
       'none'
     );
 
-    xml = this.appendAttribute(xml, this.I.FA, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
       fieldLabel: label,
       fieldDescription: description,
       name: fieldName,
@@ -1539,11 +1630,11 @@ class AemDialogGeneratorPlugin {
 
     xml = this.appendAttribute(
       xml,
-      this.I.FA,
+      this.getIndentLevel(this.I.FA),
       { required },
       { isBoolean: true }
     );
-    xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'rootPath',
       'fragmentModel',
@@ -1575,7 +1666,7 @@ class AemDialogGeneratorPlugin {
       'none'
     );
 
-    xml = this.appendAttribute(xml, this.I.FA, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
       fieldLabel: label,
       fieldDescription: description,
       name: fieldName,
@@ -1584,11 +1675,11 @@ class AemDialogGeneratorPlugin {
 
     xml = this.appendAttribute(
       xml,
-      this.I.FA,
+      this.getIndentLevel(this.I.FA),
       { required },
       { isBoolean: true }
     );
-    xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'rootPath',
     ]);
@@ -1620,7 +1711,7 @@ class AemDialogGeneratorPlugin {
       'none'
     );
 
-    xml = this.appendAttribute(xml, this.I.FA, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
       fieldLabel: label,
       fieldDescription: description,
       name: fieldName,
@@ -1630,12 +1721,12 @@ class AemDialogGeneratorPlugin {
 
     xml = this.appendAttribute(
       xml,
-      this.I.FA,
+      this.getIndentLevel(this.I.FA),
       { required },
       { isBoolean: true }
     );
 
-    xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'rootPath',
       'mimeTypes',
@@ -1668,7 +1759,7 @@ class AemDialogGeneratorPlugin {
       { 'sling:resourceType': 'granite/ui/components/coral/foundation/button' },
       'none'
     );
-    xml = this.appendAttribute(xml, this.I.FA, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
       text,
       variant,
       icon,
@@ -1676,12 +1767,12 @@ class AemDialogGeneratorPlugin {
     });
 
     if (handler) {
-      xml = this.appendAttribute(xml, this.I.FA, {
+      xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
         'granite:data': `{Object}${JSON.stringify({ handler: handler })}`,
       });
     }
 
-    xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'text',
       'variant',
@@ -1716,7 +1807,7 @@ class AemDialogGeneratorPlugin {
       { 'sling:resourceType': resourceType },
       'none'
     );
-    xml = this.appendAttribute(xml, this.I.FA, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
       name: fieldName,
       fieldLabel: label,
       fieldDescription: description,
@@ -1724,17 +1815,17 @@ class AemDialogGeneratorPlugin {
 
     xml = this.appendAttribute(
       xml,
-      this.I.FA,
+      this.getIndentLevel(this.I.FA),
       { required, useFixedInlineToolbar },
       { isBoolean: true }
     );
-    xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'features',
     ]);
 
     xml = this.openBlock(xml);
-    xml += this.buildNode(this.I.FN, 'rtePlugins', {}, 'open');
+    xml += this.buildNode(this.getIndentLevel(this.I.FN), 'rtePlugins', {}, 'open');
 
     if (features.includes('*')) {
       xml += this.generateRTEDefaultPlugins();
@@ -1744,13 +1835,13 @@ class AemDialogGeneratorPlugin {
       }
     }
 
-    xml += this.closeNode(this.I.FN, 'rtePlugins');
+    xml += this.closeNode(this.getIndentLevel(this.I.FN), 'rtePlugins');
 
     xml += this.buildNodes([
-      [this.I.FN, 'uiSettings'],
-      [this.I.FNI, 'cui'],
+      [this.getIndentLevel(this.I.FN), 'uiSettings'],
+      [this.getIndentLevel(this.I.FNI), 'cui'],
       [
-        this.I.FNI + 1,
+        this.getIndentLevel(this.I.FNI) + 1,
         'inline',
         {
           toolbar:
@@ -1759,27 +1850,27 @@ class AemDialogGeneratorPlugin {
             '[justify#justifleft,justify#justifycenter,justify#justifyright,lists#unordered,lists#ordered,links#link]',
         },
       ],
-      [this.I.FNI + 2, 'icons'],
-      [this.I.FNI + 3, 'justify', {}, 'open'],
-      [this.I.FNI + 4, 'justifyleft', { command: 'justifyleft' }, 'self'],
-      [this.I.FNI + 4, 'justifycenter', { command: 'justifycenter' }, 'self'],
-      [this.I.FNI + 4, 'justifyright', { command: 'justifyright' }, 'self'],
+      [this.getIndentLevel(this.I.FNI) + 2, 'icons'],
+      [this.getIndentLevel(this.I.FNI) + 3, 'justify', {}, 'open'],
+      [this.getIndentLevel(this.I.FNI) + 4, 'justifyleft', { command: 'justifyleft' }, 'self'],
+      [this.getIndentLevel(this.I.FNI) + 4, 'justifycenter', { command: 'justifycenter' }, 'self'],
+      [this.getIndentLevel(this.I.FNI) + 4, 'justifyright', { command: 'justifyright' }, 'self'],
     ]);
 
-    xml += this.closeNode(this.I.FNI + 3, 'justify');
+    xml += this.closeNode(this.getIndentLevel(this.I.FNI) + 3, 'justify');
 
     xml += this.buildNodes([
-      [this.I.FNI + 3, 'lists', {}, 'open'],
-      [this.I.FNI + 4, 'unordered', { command: 'bullist' }, 'self'],
-      [this.I.FNI + 4, 'ordered', { command: 'numlist' }, 'self'],
+      [this.getIndentLevel(this.I.FNI) + 3, 'lists', {}, 'open'],
+      [this.getIndentLevel(this.I.FNI) + 4, 'unordered', { command: 'bullist' }, 'self'],
+      [this.getIndentLevel(this.I.FNI) + 4, 'ordered', { command: 'numlist' }, 'self'],
     ]);
 
     xml += this.closeNodes([
-      [this.I.FNI + 3, 'lists'],
-      [this.I.FNI + 2, 'icons'],
-      [this.I.FNI + 1, 'inline'],
-      [this.I.FNI, 'cui'],
-      [this.I.FN, 'uiSettings'],
+      [this.getIndentLevel(this.I.FNI) + 3, 'lists'],
+      [this.getIndentLevel(this.I.FNI) + 2, 'icons'],
+      [this.getIndentLevel(this.I.FNI) + 1, 'inline'],
+      [this.getIndentLevel(this.I.FNI), 'cui'],
+      [this.getIndentLevel(this.I.FN), 'uiSettings'],
       [this.I.F, nodeName],
     ]);
 
@@ -1788,26 +1879,26 @@ class AemDialogGeneratorPlugin {
 
   generateRTEDefaultPlugins() {
     let xml = this.buildNodes([
-      [this.I.FNI, 'format', { features: 'bold,italic,underline' }, 'self'],
-      [this.I.FNI, 'justify', { features: '*' }, 'self'],
-      [this.I.FNI, 'lists', { features: '*' }, 'self'],
-      [this.I.FNI, 'links', { features: 'modifylink,unlink' }, 'self'],
-      [this.I.FNI, 'subsuperscript', { features: '*' }, 'self'],
-      [this.I.FNI, 'paraformat', { features: '*' }, 'open'],
-      [this.I.FNI + 1, 'formats', {}, 'open'],
+      [this.getIndentLevel(this.I.FNI), 'format', { features: 'bold,italic,underline' }, 'self'],
+      [this.getIndentLevel(this.I.FNI), 'justify', { features: '*' }, 'self'],
+      [this.getIndentLevel(this.I.FNI), 'lists', { features: '*' }, 'self'],
+      [this.getIndentLevel(this.I.FNI), 'links', { features: 'modifylink,unlink' }, 'self'],
+      [this.getIndentLevel(this.I.FNI), 'subsuperscript', { features: '*' }, 'self'],
+      [this.getIndentLevel(this.I.FNI), 'paraformat', { features: '*' }, 'open'],
+      [this.getIndentLevel(this.I.FNI) + 1, 'formats', {}, 'open'],
       [
-        this.I.FNI + 2,
+        this.getIndentLevel(this.I.FNI) + 2,
         'default',
         { description: 'Paragraph', tag: 'p' },
         'self',
       ],
-      [this.I.FNI + 2, 'h1', { description: 'Heading 1', tag: 'h1' }, 'self'],
-      [this.I.FNI + 2, 'h2', { description: 'Heading 2', tag: 'h2' }, 'self'],
-      [this.I.FNI + 2, 'h3', { description: 'Heading 3', tag: 'h3' }, 'self'],
+      [this.getIndentLevel(this.I.FNI) + 2, 'h1', { description: 'Heading 1', tag: 'h1' }, 'self'],
+      [this.getIndentLevel(this.I.FNI) + 2, 'h2', { description: 'Heading 2', tag: 'h2' }, 'self'],
+      [this.getIndentLevel(this.I.FNI) + 2, 'h3', { description: 'Heading 3', tag: 'h3' }, 'self'],
     ]);
     xml += this.closeNodes([
-      [this.I.FNI + 1, 'formats'],
-      [this.I.FNI, 'paraformat'],
+      [this.getIndentLevel(this.I.FNI) + 1, 'formats'],
+      [this.getIndentLevel(this.I.FNI), 'paraformat'],
     ]);
     return xml;
   }
@@ -1825,7 +1916,7 @@ class AemDialogGeneratorPlugin {
     if (!plugins[feature]) return '';
 
     const { node, attrs } = plugins[feature];
-    return this.buildNode(this.I.FNI, node, attrs, 'self');
+    return this.buildNode(this.getIndentLevel(this.I.FNI), node, attrs, 'self');
   }
 
   generateMultifield(field) {
@@ -1879,13 +1970,13 @@ class AemDialogGeneratorPlugin {
     const resourceType = this.getResourceType('multifield');
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       nodeName,
       { 'sling:resourceType': resourceType },
       'none'
     );
 
-    xml = this.appendAttribute(xml, this.I.FA, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
       fieldLabel: label,
       fieldDescription: description,
       deleteHint,
@@ -1899,12 +1990,12 @@ class AemDialogGeneratorPlugin {
 
     xml = this.appendAttribute(
       xml,
-      this.I.FA,
+      this.getIndentLevel(this.I.FA),
       { required, composite, orderable: ordered },
       { isBoolean: true }
     );
 
-    xml = this.appendAdditionalProperties(xml, this.I.FA, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'fields',
       'items',
@@ -1919,37 +2010,37 @@ class AemDialogGeneratorPlugin {
     ]);
 
     xml = this.openBlock(xml);
-    xml += this.buildNode(this.I.FN, 'field', {}, 'none');
+    xml += this.buildNode(this.getIndentLevel(this.I.FN), 'field', {}, 'none');
 
     if (composite && multifieldItems.length > 0) {
-      xml = this.appendAttribute(xml, this.I.FNI, {
+      xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FNI), {
         'sling:resourceType':
           'granite/ui/components/coral/foundation/container',
         name: fieldName,
       });
       xml = this.openBlock(xml);
-      xml += this.buildNode(this.I.FNI, 'items', {}, 'open');
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI), 'items', {}, 'open');
 
       for (const subField of multifieldItems) {
         xml += this.generateMultifieldItem(subField);
       }
 
-      xml += this.closeNode(this.I.FNI, 'items');
-      xml += this.closeNode(this.I.FN, 'field');
+      xml += this.closeNode(this.getIndentLevel(this.I.FNI), 'items');
+      xml += this.closeNode(this.getIndentLevel(this.I.FN), 'field');
     } else if (multifieldItems.length > 0) {
       const singleField = multifieldItems[0];
       const subResourceType = this.getResourceType(
         singleField.type || 'textfield'
       );
 
-      xml = this.appendAttribute(xml, this.I.FNI, {
+      xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FNI), {
         'sling:resourceType': subResourceType,
         name: fieldName,
         fieldLabel: singleField.label,
         fieldDescription: singleField.description,
       });
 
-      xml = this.appendAdditionalProperties(xml, this.I.FNI, singleField, [
+      xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FNI), singleField, [
         'type',
         'label',
         'description',
@@ -1958,7 +2049,7 @@ class AemDialogGeneratorPlugin {
 
       xml = this.selfClose(xml);
     } else {
-      xml = this.appendAttribute(xml, this.I.FNI, {
+      xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FNI), {
         'sling:resourceType':
           'granite/ui/components/coral/foundation/form/textfield',
         name: fieldName,
@@ -1966,7 +2057,7 @@ class AemDialogGeneratorPlugin {
       xml = this.selfClose(xml);
     }
 
-    xml += this.closeNode(this.I.F, nodeName);
+    xml += this.closeNode(this.getIndentLevel(this.I.F), nodeName);
 
     return xml;
   }
@@ -1992,13 +2083,13 @@ class AemDialogGeneratorPlugin {
     const nodeName = this.sanitizeNodeName(fieldName);
 
     let xml = this.buildNode(
-      this.I.MI,
+      this.getIndentLevel(this.I.MI),
       nodeName,
       { 'sling:resourceType': resourceType },
       'none'
     );
 
-    xml = this.appendAttribute(xml, this.I.MI + 1, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.MI) + 1, {
       fieldLabel: label,
       fieldDescription: description,
       name: fieldName,
@@ -2006,12 +2097,12 @@ class AemDialogGeneratorPlugin {
     });
     xml = this.appendAttribute(
       xml,
-      this.I.MI + 1,
+      this.getIndentLevel(this.I.MI) + 1,
       { required },
       { isBoolean: true }
     );
 
-    xml = this.appendAdditionalProperties(xml, this.I.MI + 1, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.MI) + 1, otherProps, [
       'options',
       'fields',
       'items',
@@ -2019,10 +2110,10 @@ class AemDialogGeneratorPlugin {
 
     if (options && Array.isArray(options) && options.length > 0) {
       xml = this.openBlock(xml);
-      xml += this.buildNode(this.I.MI + 3, 'items', {}, 'open');
-      xml += this.appendOptions(options, this.I.MI + 4);
-      xml += this.closeNode(this.I.MI + 3, 'items');
-      xml += this.closeNode(this.I.MI + 2, nodeName);
+      xml += this.buildNode(this.getIndentLevel(this.I.MI) + 3, 'items', {}, 'open');
+      xml += this.appendOptions(options, this.getIndentLevel(this.I.MI) + 4);
+      xml += this.closeNode(this.getIndentLevel(this.I.MI) + 3, 'items');
+      xml += this.closeNode(this.getIndentLevel(this.I.MI) + 2, nodeName);
     } else {
       xml = this.selfClose(xml);
     }
@@ -2049,27 +2140,27 @@ class AemDialogGeneratorPlugin {
     const nestedFields = fields.length > 0 ? fields : items;
 
     let xml = this.buildNode(
-      this.I.MI,
+      this.getIndentLevel(this.I.MI),
       nodeName,
       { 'sling:resourceType': resourceType },
       'none'
     );
 
     if (label && type === 'fieldset') {
-      xml = this.appendAttribute(xml, this.I.MI + 1, { 'jcr:title': label });
+      xml = this.appendAttribute(xml, this.getIndentLevel(this.I.MI) + 1, { 'jcr:title': label });
     }
 
-    xml = this.appendAttribute(xml, this.I.MI + 1, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.MI) + 1, {
       fieldDescription: description,
     });
 
     if (showhideClass) {
-      xml = this.appendAttribute(xml, this.I.MI + 1, {
+      xml = this.appendAttribute(xml, this.getIndentLevel(this.I.MI) + 1, {
         'granite:class': `hide ${showhideClass}`,
       });
     }
 
-    xml = this.appendAdditionalProperties(xml, this.I.MI + 1, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.MI) + 1, otherProps, [
       'type',
       'fields',
       'items',
@@ -2077,14 +2168,14 @@ class AemDialogGeneratorPlugin {
     ]);
 
     xml = this.openBlock(xml);
-    xml += this.buildNode(this.I.MI + 1, 'items', {}, 'open');
+    xml += this.buildNode(this.getIndentLevel(this.I.MI) + 1, 'items', {}, 'open');
 
     for (const subField of nestedFields) {
       xml += this.generateMultifieldFieldsetOrContainerItem(subField);
     }
 
-    xml += this.closeNode(this.I.MI + 1, 'items');
-    xml += this.closeNode(this.I.MI, nodeName);
+    xml += this.closeNode(this.getIndentLevel(this.I.MI) + 1, 'items');
+    xml += this.closeNode(this.getIndentLevel(this.I.MI), nodeName);
 
     return xml;
   }
@@ -2106,13 +2197,13 @@ class AemDialogGeneratorPlugin {
     const nodeName = this.sanitizeNodeName(fieldName);
 
     let xml = this.buildNode(
-      this.I.MI + 2,
+      this.getIndentLevel(this.I.MI) + 2,
       nodeName,
       { 'sling:resourceType': resourceType },
       'none'
     );
 
-    xml = this.appendAttribute(xml, this.I.MI + 3, {
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.MI) + 3, {
       fieldLabel: label,
       fieldDescription: description,
       name: fieldName,
@@ -2120,12 +2211,12 @@ class AemDialogGeneratorPlugin {
     });
     xml = this.appendAttribute(
       xml,
-      this.I.MI + 3,
+      this.getIndentLevel(this.I.MI) + 3,
       { required },
       { isBoolean: true }
     );
 
-    xml = this.appendAdditionalProperties(xml, this.I.MI + 3, otherProps, [
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.MI) + 3, otherProps, [
       'options',
       'fields',
       'items',
@@ -2133,10 +2224,10 @@ class AemDialogGeneratorPlugin {
 
     if (options && Array.isArray(options) && options.length > 0) {
       xml = this.openBlock(xml);
-      xml += this.buildNode(this.I.MI + 3, 'items', {}, 'open');
-      xml += this.appendOptions(options, this.I.MI + 4);
-      xml += this.closeNode(this.I.MI + 3, 'items');
-      xml += this.closeNode(this.I.MI + 2, nodeName);
+      xml += this.buildNode(this.getIndentLevel(this.I.MI) + 3, 'items', {}, 'open');
+      xml += this.appendOptions(options, this.getIndentLevel(this.I.MI) + 4);
+      xml += this.closeNode(this.getIndentLevel(this.I.MI) + 3, 'items');
+      xml += this.closeNode(this.getIndentLevel(this.I.MI) + 2, nodeName);
     } else {
       xml = this.selfClose(xml);
     }
@@ -2327,6 +2418,30 @@ class AemDialogGeneratorPlugin {
     return `${baseName}_${decimal}`;
   }
 
+  pushIndentLevel(level) {
+    this._indentStack.push(this._baseIndentLevel);
+    this._baseIndentLevel = level;
+  }
+  
+  popIndentLevel() {
+    if (this._indentStack.length > 0) {
+      this._baseIndentLevel = this._indentStack.pop();
+    }
+  }
+  
+  getIndentLevel(relativeOffset = 0) {
+    return this._baseIndentLevel + relativeOffset;
+  }
+  
+  withIndentLevel(level, callback) {
+    this.pushIndentLevel(level);
+    try {
+      return callback();
+    } finally {
+      this.popIndentLevel();
+    }
+  }
+  
   withAdjustedIndentation(fieldOffset, attributeOffset, callback) {
     const originalLevels = { ...this.I };
     this.I.F = this.I.FNI + fieldOffset;
@@ -2336,6 +2451,420 @@ class AemDialogGeneratorPlugin {
     } finally {
       this.I = originalLevels;
     }
+  }
+
+  generateDesignDialogXml(config, componentName) {
+    this._fieldCounter = 0;
+    
+    const {
+      title = `${componentName.charAt(0).toUpperCase() + componentName.slice(1)} Design`,
+      tabs = [],
+      fields = [],
+      items = [],
+      layout = 'tabs',
+    } = config;
+
+    let xml = '';
+    xml += this.line(0, '<?xml version="1.0" encoding="UTF-8"?>');
+    xml += this.buildNode(
+      0,
+      'jcr:root',
+      {
+        'xmlns:sling': 'http://sling.apache.org/jcr/sling/1.0',
+        'xmlns:jcr': 'http://www.jcp.org/jcr/1.0',
+        'xmlns:nt': 'http://www.jcp.org/jcr/nt/1.0',
+        'xmlns:cq': 'http://www.day.com/jcr/cq/1.0',
+        'xmlns:granite': 'http://www.adobe.com/jcr/granite/1.0',
+        'jcr:primaryType': 'nt:unstructured',
+        'jcr:title': title,
+        'sling:resourceType': 'cq/gui/components/authoring/dialog',
+      },
+      'open'
+    );
+    xml += this.buildNode(
+      1,
+      'content',
+      {
+        'sling:resourceType':
+          'granite/ui/components/coral/foundation/container',
+      },
+      'open'
+    );
+
+    const useSimpleLayout =
+      layout === 'simple' ||
+      (tabs.length === 0 && (fields.length > 0 || items.length > 0));
+
+    if (useSimpleLayout) {
+      xml += this.buildNode(2, 'items', {}, 'open');
+      xml += this.buildNode(
+        3,
+        'columns',
+        {
+          'sling:resourceType':
+            'granite/ui/components/coral/foundation/fixedcolumns',
+          margin: '{Boolean}true',
+        },
+        'open'
+      );
+      xml += this.buildNode(4, 'items', {}, 'open');
+      xml += this.buildNode(
+        5,
+        'column',
+        {
+          'sling:resourceType':
+            'granite/ui/components/coral/foundation/container',
+        },
+        'open'
+      );
+      xml += this.buildNode(6, 'items', {}, 'open');
+
+      const fieldsArray = fields.length > 0 ? fields : items;
+      
+      xml += this.withIndentLevel(7, () => {
+        let result = '';
+        for (const field of fieldsArray) {
+          result += this.generateField(field);
+        }
+        return result;
+      });
+
+      xml += this.closeNodes([
+        [6, 'items'],
+        [5, 'column'],
+        [4, 'items'],
+        [3, 'columns'],
+        [2, 'items'],
+      ]);
+    } else {
+      xml += this.buildNode(
+        2,
+        'items',
+        {
+          'sling:resourceType':
+            'granite/ui/components/coral/foundation/tabs',
+          maximized: '{Boolean}true',
+        },
+        'open'
+      );
+      xml += this.buildNode(3, 'items', {}, 'open');
+
+      xml += this.withIndentLevel(3, () => {
+        let result = '';
+        for (const [index, tab] of tabs.entries()) {
+          result += this.generateTab(tab, index);
+        }
+        
+        if (config.policy && config.policy.styleGroups && config.policy.styleGroups.length > 0) {
+          result += this.generateStylesTab();
+        }
+        
+        return result;
+      });
+
+      xml += this.closeNodes([
+        [3, 'items'],
+        [2, 'items'],
+      ]);
+    }
+
+    xml += this.closeNode(1, 'content');
+    xml = this.trimLine(xml);
+    xml += '</jcr:root>';
+
+    return xml;
+  }
+
+  generatePolicy(componentName, policyConfig) {
+    const {
+      name = `policy_${componentName}`,
+      title = `${componentName.charAt(0).toUpperCase() + componentName.slice(1)} Policy`,
+      description = '',
+      properties = {},
+      componentMapping = [],
+      rtePlugins = null,
+      styleGroups = [],
+    } = policyConfig;
+
+    const policiesDir = this.options.policiesTargetDir;
+    const appName = this.options.appName;
+    
+    const componentPolicyDir = path.join(policiesDir, appName, 'components', componentName);
+    if (!fs.existsSync(componentPolicyDir)) {
+      fs.mkdirSync(componentPolicyDir, { recursive: true });
+    }
+
+    let xml = '';
+    xml += this.line(0, '<?xml version="1.0" encoding="UTF-8"?>');
+    xml += this.buildNode(
+      0,
+      'jcr:root',
+      {
+        'xmlns:sling': 'http://sling.apache.org/jcr/sling/1.0',
+        'xmlns:cq': 'http://www.day.com/jcr/cq/1.0',
+        'xmlns:jcr': 'http://www.jcp.org/jcr/1.0',
+        'xmlns:nt': 'http://www.jcp.org/jcr/nt/1.0',
+        'jcr:primaryType': 'nt:unstructured',
+      },
+      'open'
+    );
+
+    xml += this.buildNode(
+      1,
+      this.sanitizeNodeName(name),
+      {
+        'jcr:primaryType': 'nt:unstructured',
+        'jcr:title': title,
+        ...(description && { 'jcr:description': description }),
+        'sling:resourceType': 'wcm/core/components/policy/policy',
+        ...properties,
+      },
+      'open'
+    );
+
+    if (rtePlugins) {
+      xml += this.generatePolicyRTEPlugins(rtePlugins);
+    }
+
+    if (componentMapping && componentMapping.length > 0) {
+      xml += this.generatePolicyComponentMapping(componentMapping);
+    }
+
+    if (styleGroups && styleGroups.length > 0) {
+      xml += this.generatePolicyStyleGroups(styleGroups);
+    }
+
+    xml += this.closeNode(1, this.sanitizeNodeName(name));
+    xml = this.trimLine(xml);
+    xml += '</jcr:root>';
+
+    const policyFilePath = path.join(componentPolicyDir, '.content.xml');
+    fs.writeFileSync(policyFilePath, xml, 'utf8');
+
+    this.log(`✓ Generated policy: ${policyFilePath}`);
+  }
+
+  generatePolicyRTEPlugins(rtePlugins, baseLevel = 2) {
+    let xml = this.buildNode(baseLevel, 'rtePlugins', {}, 'open');
+
+    for (const [pluginName, pluginConfig] of Object.entries(rtePlugins)) {
+      const { features = '*', ...otherConfig } = pluginConfig;
+
+      xml += this.buildNode(
+        baseLevel + 1,
+        pluginName,
+        {
+          'jcr:primaryType': 'nt:unstructured',
+          features: features,
+          ...otherConfig,
+        },
+        'none'
+      );
+
+      if (pluginConfig.formats || pluginConfig.chars || pluginConfig.styles) {
+        xml = this.openBlock(xml);
+
+        if (pluginConfig.formats) {
+          xml += this.buildNode(baseLevel + 2, 'formats', { 'jcr:primaryType': 'nt:unstructured', override: '{Boolean}true' }, 'open');
+          pluginConfig.formats.forEach((format, index) => {
+            xml += this.buildNode(
+              baseLevel + 3,
+              `item${index}`,
+              {
+                'jcr:primaryType': 'nt:unstructured',
+                ...format,
+              },
+              'self'
+            );
+          });
+          xml += this.closeNode(baseLevel + 2, 'formats');
+        }
+
+        if (pluginConfig.chars) {
+          xml += this.buildNode(baseLevel + 2, 'specialCharsConfig', {}, 'open');
+          xml += this.buildNode(baseLevel + 3, 'chars', { 'jcr:primaryType': 'nt:unstructured', override: '{Boolean}true' }, 'open');
+          pluginConfig.chars.forEach((char, index) => {
+            xml += this.buildNode(
+              baseLevel + 4,
+              `item${index}`,
+              {
+                'jcr:primaryType': 'nt:unstructured',
+                ...char,
+              },
+              'self'
+            );
+          });
+          xml += this.closeNodes([
+            [baseLevel + 3, 'chars'],
+            [baseLevel + 2, 'specialCharsConfig'],
+          ]);
+        }
+
+        xml += this.closeNode(baseLevel + 1, pluginName);
+      } else {
+        xml = this.selfClose(xml);
+      }
+    }
+
+    xml += this.closeNode(baseLevel, 'rtePlugins');
+    return xml;
+  }
+
+  generatePolicyComponentMapping(mappings, baseLevel = 2) {
+    let xml = this.buildNode(baseLevel, 'cq:authoring', {}, 'open');
+    xml += this.buildNode(baseLevel + 1, 'assetToComponentMapping', {}, 'open');
+
+    mappings.forEach((mapping, index) => {
+      const nodeName = mapping.name || `mapping_${Date.now() + index}`;
+      xml += this.buildNode(
+        baseLevel + 2,
+        nodeName,
+        {
+          'jcr:primaryType': 'nt:unstructured',
+          assetGroup: mapping.assetGroup,
+          assetMimetype: mapping.assetMimetype,
+          droptarget: mapping.droptarget,
+          resourceType: mapping.resourceType,
+        },
+        'self'
+      );
+    });
+
+    xml += this.closeNodes([
+      [baseLevel + 1, 'assetToComponentMapping'],
+      [baseLevel, 'cq:authoring'],
+    ]);
+
+    return xml;
+  }
+
+  generatePolicyStyleGroups(styleGroups, baseLevel = 2) {
+    let xml = this.buildNode(baseLevel, 'cq:styleGroups', {}, 'open');
+
+    styleGroups.forEach((group, index) => {
+      const groupName = group.name || `stylegroup_${index}`;
+      xml += this.buildNode(
+        baseLevel + 1,
+        groupName,
+        {
+          'jcr:primaryType': 'nt:unstructured',
+          'cq:styleGroupLabel': group.label,
+        },
+        'open'
+      );
+
+      xml += this.buildNode(baseLevel + 2, 'cq:styles', {}, 'open');
+
+      if (group.styles && Array.isArray(group.styles)) {
+        group.styles.forEach((style, styleIndex) => {
+          const styleName = style.name || `style_${styleIndex}`;
+          xml += this.buildNode(
+            baseLevel + 3,
+            styleName,
+            {
+              'jcr:primaryType': 'nt:unstructured',
+              'cq:styleLabel': style.label,
+              'cq:styleClasses': style.classes,
+              ...(style.icon && { 'cq:styleIcon': style.icon }),
+            },
+            'self'
+          );
+        });
+      }
+
+      xml += this.closeNodes([
+        [baseLevel + 2, 'cq:styles'],
+        [baseLevel + 1, groupName],
+      ]);
+    });
+
+    xml += this.closeNode(baseLevel, 'cq:styleGroups');
+    return xml;
+  }
+
+  generateStylesTab() {
+    const tabLevel = this.getIndentLevel(1);
+    
+    const xml = this.buildNode(
+      tabLevel,
+      'cq:styles',
+      {
+        'jcr:primaryType': 'nt:unstructured',
+        'sling:resourceType': 'granite/ui/components/coral/foundation/include',
+        path: '/mnt/overlay/cq/gui/components/authoring/dialog/style/tab_design/styletab',
+      },
+      'self'
+    );
+    
+    return xml;
+  }
+
+  mapPolicyToTemplates(componentName, policyConfig) {
+    const { name: policyName, templates = [] } = policyConfig;
+    const appName = this.options.appName;
+    
+    if (templates.length === 0) {
+      return;
+    }
+
+    templates.forEach(templateName => {
+      const templatePoliciesPath = path.join(
+        this.options.templatePoliciesDir,
+        templateName,
+        'policies',
+        '.content.xml'
+      );
+
+      if (!fs.existsSync(templatePoliciesPath)) {
+        this.log(`✗ Template policies file not found: ${templatePoliciesPath}`);
+        return;
+      }
+
+      try {
+        let xml = fs.readFileSync(templatePoliciesPath, 'utf8');
+        
+        // Check if mapping already exists
+        const mappingPattern = new RegExp(`<${componentName}\\s[^>]*cq:policy="[^"]*"[^>]*>`);
+        if (mappingPattern.test(xml)) {
+          this.log(`• Policy mapping for ${componentName} already exists in ${templateName}`);
+          return;
+        }
+
+        // Find the closing </components> tag and add the mapping before it
+        const componentsEndTag = '</components>';
+        const componentsIndex = xml.lastIndexOf(componentsEndTag);
+        
+        if (componentsIndex === -1) {
+          this.log(`✗ Could not find components section in ${templateName} policies`);
+          return;
+        }
+
+        // Generate the policy mapping
+        const policyPath = `${appName}/components/${componentName}/${policyName}`;
+        
+        const mappingXml = this.buildNode(
+          7,
+          componentName,
+          {
+            'cq:policy': policyPath,
+            'jcr:primaryType': 'nt:unstructured',
+            'sling:resourceType': 'wcm/core/components/policies/mapping'
+          },
+          'self'
+        );
+
+        // Insert the mapping
+        xml = xml.substring(0, componentsIndex) + mappingXml + xml.substring(componentsIndex);
+        
+        // Write back to file
+        fs.writeFileSync(templatePoliciesPath, xml, 'utf8');
+        
+        this.log(`✓ Mapped policy ${policyPath} to template ${templateName}`);
+        
+      } catch (error) {
+        this.log(`✗ Error mapping policy to template ${templateName}: ${error.message}`);
+      }
+    });
   }
 }
 
