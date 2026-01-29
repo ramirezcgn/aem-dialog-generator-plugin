@@ -3912,6 +3912,150 @@ describe('Design Dialog Generation', () => {
       expect(xml).toContain('cq:styleClasses="cmp-card--elevated"');
     });
 
+    test('should generate cq:styleId for each style in policy', () => {
+      const policyConfig = {
+        name: 'policy_section',
+        title: 'Section Policy',
+        styleGroups: [
+          {
+            name: 'containerWidth',
+            label: 'Container Width',
+            styles: [
+              {
+                name: 'fixed',
+                label: 'Fixed Width',
+                classes: 'cmp-section--fixed',
+              },
+              {
+                name: 'full',
+                label: 'Full Width',
+                classes: 'cmp-section--full',
+              },
+            ],
+          },
+        ],
+      };
+
+      plugin.generatePolicy('section', policyConfig);
+
+      const policyPath = path.join(tempDir, 'policies', 'testsite', 'components', 'section', '.content.xml');
+      const xml = fs.readFileSync(policyPath, 'utf8');
+
+      // Verify cq:styleId is present for each style
+      expect(xml).toContain('cq:styleId="fixed"');
+      expect(xml).toContain('cq:styleId="full"');
+      
+      // Verify the complete structure
+      expect(xml).toContain('cq:styleLabel="Fixed Width"');
+      expect(xml).toContain('cq:styleClasses="cmp-section--fixed"');
+      expect(xml).toContain('cq:styleLabel="Full Width"');
+      expect(xml).toContain('cq:styleClasses="cmp-section--full"');
+    });
+
+    test('should handle duplicate style names by adding counter to cq:styleId', () => {
+      const policyConfig = {
+        name: 'policy_duplicate',
+        title: 'Duplicate Test Policy',
+        styleGroups: [
+          {
+            name: 'colors',
+            label: 'Colors',
+            styles: [
+              {
+                name: 'primary',
+                label: 'Primary Color',
+                classes: 'cmp-test--primary',
+              },
+              {
+                name: 'primary',
+                label: 'Primary Alternative',
+                classes: 'cmp-test--primary-alt',
+              },
+              {
+                name: 'primary',
+                label: 'Primary Dark',
+                classes: 'cmp-test--primary-dark',
+              },
+            ],
+          },
+        ],
+      };
+
+      plugin.generatePolicy('duplicate', policyConfig);
+
+      const policyPath = path.join(tempDir, 'policies', 'testsite', 'components', 'duplicate', '.content.xml');
+      const xml = fs.readFileSync(policyPath, 'utf8');
+
+      // Verify unique styleIds are generated
+      expect(xml).toContain('cq:styleId="primary"');
+      expect(xml).toContain('cq:styleId="primary_1"');
+      expect(xml).toContain('cq:styleId="primary_2"');
+      
+      // Verify all labels are present
+      expect(xml).toContain('cq:styleLabel="Primary Color"');
+      expect(xml).toContain('cq:styleLabel="Primary Alternative"');
+      expect(xml).toContain('cq:styleLabel="Primary Dark"');
+    });
+
+    test('should generate unique cq:styleId per group (duplicates across groups are allowed)', () => {
+      const policyConfig = {
+        name: 'policy_multigroup',
+        title: 'Multi Group Policy',
+        styleGroups: [
+          {
+            name: 'sizes',
+            label: 'Sizes',
+            styles: [
+              {
+                name: 'small',
+                label: 'Small Size',
+                classes: 'cmp-test--small',
+              },
+              {
+                name: 'large',
+                label: 'Large Size',
+                classes: 'cmp-test--large',
+              },
+            ],
+          },
+          {
+            name: 'spacing',
+            label: 'Spacing',
+            styles: [
+              {
+                name: 'small',
+                label: 'Small Spacing',
+                classes: 'cmp-test--spacing-sm',
+              },
+              {
+                name: 'large',
+                label: 'Large Spacing',
+                classes: 'cmp-test--spacing-lg',
+              },
+            ],
+          },
+        ],
+      };
+
+      plugin.generatePolicy('multigroup', policyConfig);
+
+      const policyPath = path.join(tempDir, 'policies', 'testsite', 'components', 'multigroup', '.content.xml');
+      const xml = fs.readFileSync(policyPath, 'utf8');
+
+      // Each group should have its own 'small' and 'large' without conflicts
+      const smallMatches = xml.match(/cq:styleId="small"/g);
+      const largeMatches = xml.match(/cq:styleId="large"/g);
+      
+      expect(smallMatches).toHaveLength(2); // One in each group
+      expect(largeMatches).toHaveLength(2); // One in each group
+      
+      // Verify all labels are present
+      expect(xml).toContain('cq:styleLabel="Small Size"');
+      expect(xml).toContain('cq:styleLabel="Large Size"');
+      expect(xml).toContain('cq:styleLabel="Small Spacing"');
+      expect(xml).toContain('cq:styleLabel="Large Spacing"');
+    });
+
     test('should generate policy with RTE plugins', () => {
       const policyConfig = {
         name: 'policy_text',

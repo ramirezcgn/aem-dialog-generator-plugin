@@ -2771,13 +2771,26 @@ class AemDialogGeneratorPlugin {
       xml += this.buildNode(baseLevel + 2, 'cq:styles', {}, 'open');
 
       if (group.styles && Array.isArray(group.styles)) {
+        const usedStyleIds = new Set();
+        
         group.styles.forEach((style, styleIndex) => {
           const styleName = style.name || `style_${styleIndex}`;
+          
+          // Ensure unique cq:styleId within the group
+          let styleId = styleName;
+          let counter = 1;
+          while (usedStyleIds.has(styleId)) {
+            styleId = `${styleName}_${counter}`;
+            counter++;
+          }
+          usedStyleIds.add(styleId);
+          
           xml += this.buildNode(
             baseLevel + 3,
             styleName,
             {
               'jcr:primaryType': 'nt:unstructured',
+              'cq:styleId': styleId,
               'cq:styleLabel': style.label,
               'cq:styleClasses': style.classes,
               ...(style.icon && { 'cq:styleIcon': style.icon }),
