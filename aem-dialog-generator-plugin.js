@@ -2912,8 +2912,15 @@ class AemDialogGeneratorPlugin {
             return;
           }
           
+          const beforeComponents = xml.substring(0, componentsIndex);
+          
+          const lastNewlineIndex = beforeComponents.lastIndexOf('\n');
+          const componentsIndent = xml.substring(lastNewlineIndex + 1, componentsIndex);
+          
+          const nodeIndent = componentsIndent + '    ';
+          const indentLevel = nodeIndent.length / 4;
           const mappingXml = this.buildNode(
-            7,
+            indentLevel,
             componentName,
             {
               'cq:policy': policyPath,
@@ -2921,9 +2928,9 @@ class AemDialogGeneratorPlugin {
               'sling:resourceType': 'wcm/core/components/policies/mapping'
             },
             'self'
-          );
+          ).trim();
 
-          xml = xml.substring(0, componentsIndex) + mappingXml + xml.substring(componentsIndex);
+          xml = xml.substring(0, lastNewlineIndex + 1) + mappingXml + '\n' + componentsIndent + xml.substring(componentsIndex);
           this.log(`✓ Mapped policy ${policyPath} to template ${templateName}`);
         }
         

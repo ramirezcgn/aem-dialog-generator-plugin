@@ -3841,6 +3841,169 @@ describe('Design Dialog Generation', () => {
       expect(updatedContent).toContain('cq:policy="testsite/components/hero/policy_hero"');
       expect(updatedContent).toContain('sling:resourceType="wcm/core/components/policies/mapping"');
     });
+
+    test('should insert new policy mapping with correct indentation', () => {
+      const templatePoliciesDir = path.join(tempDir, 'templates');
+      const templateDir = path.join(templatePoliciesDir, 'page-content', 'policies');
+      fs.mkdirSync(templateDir, { recursive: true });
+
+      const existingXml = `<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:jcr="http://www.jcp.org/jcr/1.0" jcr:primaryType="cq:Page">
+    <jcr:content jcr:primaryType="nt:unstructured">
+        <root jcr:primaryType="nt:unstructured">
+            <container jcr:primaryType="nt:unstructured">
+                <mysite jcr:primaryType="nt:unstructured">
+                    <components jcr:primaryType="nt:unstructured">
+                        <section
+                            cq:policy="testsite/components/section/policy"
+                            jcr:primaryType="nt:unstructured"
+                            sling:resourceType="wcm/core/components/policies/mapping"/>
+                    </components>
+                </mysite>
+            </container>
+        </root>
+    </jcr:content>
+</jcr:root>`;
+
+      fs.writeFileSync(path.join(templateDir, '.content.xml'), existingXml, 'utf8');
+
+      plugin.options.templatePoliciesDir = templatePoliciesDir;
+      plugin.mapPolicyToTemplates('button', { name: 'policy_button', templates: ['page-content'] });
+
+      const updatedXml = fs.readFileSync(path.join(templateDir, '.content.xml'), 'utf8');
+
+      // Should contain the new button mapping
+      expect(updatedXml).toContain('<button');
+      expect(updatedXml).toContain('cq:policy="testsite/components/button/policy_button"');
+
+      // Check indentation - button should have same indentation as section (24 spaces)
+      const buttonMatch = updatedXml.match(/\n( +)<button/);
+      const sectionMatch = updatedXml.match(/\n( +)<section/);
+      expect(buttonMatch).toBeTruthy();
+      expect(sectionMatch).toBeTruthy();
+      expect(buttonMatch[1].length).toBe(sectionMatch[1].length);
+
+      // Check </components> still has correct indentation (20 spaces, one level less)
+      const componentsCloseMatch = updatedXml.match(/\n( +)<\/components>/);
+      expect(componentsCloseMatch).toBeTruthy();
+      expect(componentsCloseMatch[1].length).toBe(sectionMatch[1].length - 4);
+    });
+
+    test('should not insert duplicate policy mapping', () => {
+      const templatePoliciesDir = path.join(tempDir, 'templates');
+      const templateDir = path.join(templatePoliciesDir, 'page-content', 'policies');
+      fs.mkdirSync(templateDir, { recursive: true });
+
+      const existingXml = `<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:jcr="http://www.jcp.org/jcr/1.0" jcr:primaryType="cq:Page">
+    <jcr:content jcr:primaryType="nt:unstructured">
+        <root jcr:primaryType="nt:unstructured">
+            <container jcr:primaryType="nt:unstructured">
+                <mysite jcr:primaryType="nt:unstructured">
+                    <components jcr:primaryType="nt:unstructured">
+                        <button
+                            cq:policy="testsite/components/button/policy_button"
+                            jcr:primaryType="nt:unstructured"
+                            sling:resourceType="wcm/core/components/policies/mapping"/>
+                    </components>
+                </mysite>
+            </container>
+        </root>
+    </jcr:content>
+</jcr:root>`;
+
+      fs.writeFileSync(path.join(templateDir, '.content.xml'), existingXml, 'utf8');
+
+      plugin.options.templatePoliciesDir = templatePoliciesDir;
+      plugin.mapPolicyToTemplates('button', { name: 'policy_button', templates: ['page-content'] });
+
+      const updatedXml = fs.readFileSync(path.join(templateDir, '.content.xml'), 'utf8');
+
+      // Should only have one button mapping
+      const buttonCount = (updatedXml.match(/<button/g) || []).length;
+      expect(buttonCount).toBe(1);
+    });
+
+    test('should update existing policy mapping with different policy', () => {
+      const templatePoliciesDir = path.join(tempDir, 'templates');
+      const templateDir = path.join(templatePoliciesDir, 'page-content', 'policies');
+      fs.mkdirSync(templateDir, { recursive: true });
+
+      const existingXml = `<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:jcr="http://www.jcp.org/jcr/1.0" jcr:primaryType="cq:Page">
+    <jcr:content jcr:primaryType="nt:unstructured">
+        <root jcr:primaryType="nt:unstructured">
+            <container jcr:primaryType="nt:unstructured">
+                <mysite jcr:primaryType="nt:unstructured">
+                    <components jcr:primaryType="nt:unstructured">
+                        <button
+                            cq:policy="testsite/components/button/old_policy"
+                            jcr:primaryType="nt:unstructured"
+                            sling:resourceType="wcm/core/components/policies/mapping"/>
+                    </components>
+                </mysite>
+            </container>
+        </root>
+    </jcr:content>
+</jcr:root>`;
+
+      fs.writeFileSync(path.join(templateDir, '.content.xml'), existingXml, 'utf8');
+
+      plugin.options.templatePoliciesDir = templatePoliciesDir;
+      plugin.mapPolicyToTemplates('button', { name: 'new_policy', templates: ['page-content'] });
+
+      const updatedXml = fs.readFileSync(path.join(templateDir, '.content.xml'), 'utf8');
+
+      // Should have updated policy path
+      expect(updatedXml).toContain('cq:policy="testsite/components/button/new_policy"');
+      expect(updatedXml).not.toContain('old_policy');
+
+      // Should still only have one button node
+      const buttonCount = (updatedXml.match(/<button/g) || []).length;
+      expect(buttonCount).toBe(1);
+    });
+
+    test('should preserve indentation when updating existing mapping', () => {
+      const templatePoliciesDir = path.join(tempDir, 'templates');
+      const templateDir = path.join(templatePoliciesDir, 'page-content', 'policies');
+      fs.mkdirSync(templateDir, { recursive: true });
+
+      const existingXml = `<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:jcr="http://www.jcp.org/jcr/1.0" jcr:primaryType="cq:Page">
+    <jcr:content jcr:primaryType="nt:unstructured">
+        <root jcr:primaryType="nt:unstructured">
+            <container jcr:primaryType="nt:unstructured">
+                <mysite jcr:primaryType="nt:unstructured">
+                    <components jcr:primaryType="nt:unstructured">
+                        <section
+                            cq:policy="testsite/components/section/policy"
+                            jcr:primaryType="nt:unstructured"
+                            sling:resourceType="wcm/core/components/policies/mapping"/>
+                        <button
+                            cq:policy="testsite/components/button/old_policy"
+                            jcr:primaryType="nt:unstructured"
+                            sling:resourceType="wcm/core/components/policies/mapping"/>
+                    </components>
+                </mysite>
+            </container>
+        </root>
+    </jcr:content>
+</jcr:root>`;
+
+      fs.writeFileSync(path.join(templateDir, '.content.xml'), existingXml, 'utf8');
+
+      plugin.options.templatePoliciesDir = templatePoliciesDir;
+      plugin.mapPolicyToTemplates('button', { name: 'new_policy', templates: ['page-content'] });
+
+      const updatedXml = fs.readFileSync(path.join(templateDir, '.content.xml'), 'utf8');
+
+      // Check button still has correct indentation after update (24 spaces, same as section)
+      const buttonMatch = updatedXml.match(/\n( +)<button/);
+      const sectionMatch = updatedXml.match(/\n( +)<section/);
+      expect(buttonMatch).toBeTruthy();
+      expect(sectionMatch).toBeTruthy();
+      expect(buttonMatch[1].length).toBe(sectionMatch[1].length);
+    });
   });
 
   describe('generatePolicy', () => {
