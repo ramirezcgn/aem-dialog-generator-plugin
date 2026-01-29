@@ -4138,6 +4138,144 @@ describe('Design Dialog Generation', () => {
       expect(xml).toContain('assetMimetype="text/html"');
       expect(xml).toContain('droptarget="experiencefragment"');
     });
+
+    test('should merge with existing policy when mergeWithExisting is true', () => {
+      // First, create an existing policy with some properties
+      const existingPolicyConfig = {
+        name: 'policy_title',
+        title: 'Original Title Policy',
+        description: 'Original description',
+        properties: {
+          allowedTypes: '[h2,h3,h4]',
+          linkDisabled: 'true',
+          type: 'h2',
+        },
+      };
+
+      plugin.generatePolicy('title', existingPolicyConfig);
+
+      // Now generate a new policy with styleGroups that should merge
+      const newPolicyConfig = {
+        name: 'policy_title',
+        title: 'Updated Title Policy',
+        description: 'Updated description',
+        properties: {
+          linkDisabled: 'false', // This should override
+        },
+        styleGroups: [
+          {
+            name: 'variants',
+            label: 'Variants',
+            styles: [
+              {
+                name: 'primary',
+                label: 'Primary',
+                classes: 'cmp-title--primary',
+              },
+            ],
+          },
+        ],
+        mergeWithExisting: true,
+      };
+
+      plugin.generatePolicy('title', newPolicyConfig);
+
+      const policyPath = path.join(tempDir, 'policies', 'testsite', 'components', 'title', '.content.xml');
+      const xml = fs.readFileSync(policyPath, 'utf8');
+
+      // Should have properties from both old and new, with new taking priority
+      expect(xml).toContain('allowedTypes="[h2,h3,h4]"'); // From old
+      expect(xml).toContain('type="h2"'); // From old
+      expect(xml).toContain('linkDisabled="false"'); // Overridden by new
+      expect(xml).not.toContain('linkDisabled="true"'); // Old value should be gone
+
+      // Should have new title and description
+      expect(xml).toContain('jcr:title="Updated Title Policy"');
+      expect(xml).toContain('jcr:description="Updated description"');
+
+      // Should have the new styleGroups
+      expect(xml).toContain('cq:styleGroups');
+      expect(xml).toContain('cq:styleId="primary"');
+      expect(xml).toContain('cq:styleClasses="cmp-title--primary"');
+    });
+
+    test('should not merge when mergeWithExisting is false', () => {
+      // Create initial policy
+      const existingPolicyConfig = {
+        name: 'policy_text',
+        title: 'Original Text Policy',
+        properties: {
+          maxLength: '500',
+          required: 'true',
+        },
+      };
+
+      plugin.generatePolicy('text', existingPolicyConfig);
+
+      // Generate new policy without merge
+      const newPolicyConfig = {
+        name: 'policy_text',
+        title: 'New Text Policy',
+        properties: {
+          maxLength: '1000',
+        },
+        mergeWithExisting: false,
+      };
+
+      plugin.generatePolicy('text', newPolicyConfig);
+
+      const policyPath = path.join(tempDir, 'policies', 'testsite', 'components', 'text', '.content.xml');
+      const xml = fs.readFileSync(policyPath, 'utf8');
+
+      // Should only have new properties
+      expect(xml).toContain('maxLength="1000"');
+      expect(xml).not.toContain('maxLength="500"');
+      expect(xml).not.toContain('required="true"'); // Old property should be gone
+    });
+
+    test('should support properties in designDialog.json', () => {
+      const policyConfig = {
+        name: 'policy_image',
+        title: 'Image Policy',
+        description: 'Custom image settings',
+        properties: {
+          allowUpload: 'false',
+          altValueFromDAM: 'true',
+          displayPopupTitle: 'true',
+          jpegQuality: '{Long}85',
+          allowedRenditionWidths: '[320,480,800,1200]',
+        },
+        styleGroups: [
+          {
+            name: 'size',
+            label: 'Size',
+            styles: [
+              {
+                name: 'small',
+                label: 'Small',
+                classes: 'cmp-image--small',
+              },
+            ],
+          },
+        ],
+      };
+
+      plugin.generatePolicy('image', policyConfig);
+
+      const policyPath = path.join(tempDir, 'policies', 'testsite', 'components', 'image', '.content.xml');
+      const xml = fs.readFileSync(policyPath, 'utf8');
+
+      // Verify all properties are present
+      expect(xml).toContain('allowUpload="false"');
+      expect(xml).toContain('altValueFromDAM="true"');
+      expect(xml).toContain('displayPopupTitle="true"');
+      expect(xml).toContain('jpegQuality="{Long}85"');
+      expect(xml).toContain('allowedRenditionWidths="[320,480,800,1200]"');
+
+      // Verify styleGroups are also present
+      expect(xml).toContain('cq:styleGroups');
+      expect(xml).toContain('cq:styleId="small"');
+    });
   });
 
   describe('Full Integration', () => {

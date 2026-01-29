@@ -2599,6 +2599,7 @@ class AemDialogGeneratorPlugin {
       componentMapping = [],
       rtePlugins = null,
       styleGroups = [],
+      mergeWithExisting = true,
     } = policyConfig;
 
     const policiesDir = this.options.policiesTargetDir;
@@ -2608,6 +2609,26 @@ class AemDialogGeneratorPlugin {
     if (!fs.existsSync(componentPolicyDir)) {
       fs.mkdirSync(componentPolicyDir, { recursive: true });
     }
+
+    const policyFilePath = path.join(componentPolicyDir, '.content.xml');
+    
+    let existingProperties = {};
+    let existingChildNodes = '';
+    if (mergeWithExisting && fs.existsSync(policyFilePath)) {
+      try {
+        const existingXml = fs.readFileSync(policyFilePath, 'utf8');
+        existingProperties = this.extractPolicyProperties(existingXml, name);
+        existingChildNodes = this.extractPolicyChildNodes(existingXml, name);
+        this.log(`• Merging with existing policy: ${name}`);
+      } catch (error) {
+        this.log(`⚠ Could not read existing policy, creating new: ${error.message}`);
+      }
+    }
+
+    const mergedProperties = {
+      ...existingProperties,
+      ...properties,
+    };
 
     let xml = '';
     xml += this.line(0, '<?xml version="1.0" encoding="UTF-8"?>');
@@ -2632,7 +2653,7 @@ class AemDialogGeneratorPlugin {
         'jcr:title': title,
         ...(description && { 'jcr:description': description }),
         'sling:resourceType': 'wcm/core/components/policy/policy',
-        ...properties,
+        ...mergedProperties,
       },
       'open'
     );
@@ -2649,11 +2670,14 @@ class AemDialogGeneratorPlugin {
       xml += this.generatePolicyStyleGroups(styleGroups);
     }
 
+    if (existingChildNodes && !rtePlugins && !componentMapping.length && !styleGroups.length) {
+      xml += existingChildNodes;
+    }
+
     xml += this.closeNode(1, this.sanitizeNodeName(name));
     xml = this.trimLine(xml);
     xml += '</jcr:root>';
 
-    const policyFilePath = path.join(componentPolicyDir, '.content.xml');
     fs.writeFileSync(policyFilePath, xml, 'utf8');
 
     this.log(`✓ Generated policy: ${policyFilePath}`);
@@ -2851,43 +2875,132 @@ class AemDialogGeneratorPlugin {
       try {
         let xml = fs.readFileSync(templatePoliciesPath, 'utf8');
         
-        const mappingPattern = new RegExp(String.raw`<${componentName}\s[^>]*cq:policy="[^"]*"[^>]*>`);
-        if (mappingPattern.test(xml)) {
-          this.log(`• Policy mapping for ${componentName} already exists in ${templateName}`);
-          return;
-        }
-
-        const componentsEndTag = '</components>';
-        const componentsIndex = xml.lastIndexOf(componentsEndTag);
-        
-        if (componentsIndex === -1) {
-          this.log(`✗ Could not find components section in ${templateName} policies`);
-          return;
-        }
-
         const policyPath = `${appName}/components/${componentName}/${policyName}`;
         
-        const mappingXml = this.buildNode(
-          7,
-          componentName,
-          {
-            'cq:policy': policyPath,
-            'jcr:primaryType': 'nt:unstructured',
-            'sling:resourceType': 'wcm/core/components/policies/mapping'
-          },
-          'self'
-        );
+        const exactPolicyPattern = new RegExp(String.raw`<${componentName}\s[^>]*cq:policy="${policyPath.replace(/\//g, '\\/')}"[^>]*>`);
+        if (exactPolicyPattern.test(xml)) {
+          this.log(`• Policy ${policyPath} already mapped to ${templateName}`);
+          return;
+        }
+        
+        const anyMappingPattern = new RegExp(String.raw`<${componentName}\s[^>]*cq:policy="([^"]*)"[^>]*>`, 'g');
+        const existingMatch = anyMappingPattern.exec(xml);
+        
+        if (existingMatch) {
+          const oldPolicyPath = existingMatch[1];
+          const oldMappingPattern = new RegExp(String.raw`<${componentName}\s[^>]*cq:policy="${oldPolicyPath.replace(/\//g, '\\/')}"[^>]*>`, 'g');
+          
+          const newMappingXml = this.buildNode(
+            7,
+            componentName,
+            {
+              'cq:policy': policyPath,
+              'jcr:primaryType': 'nt:unstructured',
+              'sling:resourceType': 'wcm/core/components/policies/mapping'
+            },
+            'self'
+          ).trim();
+          
+          xml = xml.replace(oldMappingPattern, newMappingXml);
+          this.log(`✓ Updated policy mapping for ${componentName} from ${oldPolicyPath} to ${policyPath} in ${templateName}`);
+        } else {
+          const componentsEndTag = '</components>';
+          const componentsIndex = xml.lastIndexOf(componentsEndTag);
+          
+          if (componentsIndex === -1) {
+            this.log(`✗ Could not find components section in ${templateName} policies`);
+            return;
+          }
+          
+          const mappingXml = this.buildNode(
+            7,
+            componentName,
+            {
+              'cq:policy': policyPath,
+              'jcr:primaryType': 'nt:unstructured',
+              'sling:resourceType': 'wcm/core/components/policies/mapping'
+            },
+            'self'
+          );
 
-        xml = xml.substring(0, componentsIndex) + mappingXml + xml.substring(componentsIndex);
+          xml = xml.substring(0, componentsIndex) + mappingXml + xml.substring(componentsIndex);
+          this.log(`✓ Mapped policy ${policyPath} to template ${templateName}`);
+        }
         
         fs.writeFileSync(templatePoliciesPath, xml, 'utf8');
-        
-        this.log(`✓ Mapped policy ${policyPath} to template ${templateName}`);
         
       } catch (error) {
         this.log(`✗ Error mapping policy to template ${templateName}: ${error.message}`);
       }
     });
+  }
+
+  extractPolicyProperties(xml, policyName) {
+    const properties = {};
+    
+    const policyNodePattern = new RegExp(
+      `<${this.sanitizeNodeName(policyName)}[^>]*>`,
+      's'
+    );
+    const match = xml.match(policyNodePattern);
+    
+    if (!match) return properties;
+    
+    const nodeTag = match[0];
+    
+    const excludedAttrs = new Set([
+      'jcr:primaryType',
+      'jcr:title',
+      'jcr:description',
+      'sling:resourceType',
+      'xmlns:sling',
+      'xmlns:cq',
+      'xmlns:jcr',
+      'xmlns:nt'
+    ]);
+    
+    const attrPattern = /(\S+)="([^"]*)"/g;
+    let attrMatch;
+    
+    while ((attrMatch = attrPattern.exec(nodeTag)) !== null) {
+      const [, attrName, attrValue] = attrMatch;
+      if (!excludedAttrs.has(attrName)) {
+        properties[attrName] = attrValue;
+      }
+    }
+    
+    return properties;
+  }
+
+  extractPolicyChildNodes(xml, policyName) {
+    const sanitizedName = this.sanitizeNodeName(policyName);
+    const openTagPattern = new RegExp(`<${sanitizedName}[^>]*>`, 's');
+    const closeTagPattern = new RegExp(`</${sanitizedName}>`, 's');
+    
+    const openMatch = xml.match(openTagPattern);
+    const closeMatch = xml.match(closeTagPattern);
+    
+    if (!openMatch || !closeMatch) return '';
+    
+    const openIndex = xml.indexOf(openMatch[0]) + openMatch[0].length;
+    const closeIndex = xml.indexOf(closeMatch[0]);
+    
+    if (openIndex >= closeIndex) return '';
+    
+    const content = xml.substring(openIndex, closeIndex).trim();
+    
+    const knownNodes = ['rtePlugins', 'cq:authoring', 'cq:styleGroups'];
+    let filteredContent = content;
+    
+    for (const nodeName of knownNodes) {
+      const nodePattern = new RegExp(
+        `<${nodeName}[^>]*>.*?</${nodeName}>`,
+        'gs'
+      );
+      filteredContent = filteredContent.replace(nodePattern, '');
+    }
+    
+    return filteredContent.trim() ? '\n' + filteredContent : '';
   }
 }
 
