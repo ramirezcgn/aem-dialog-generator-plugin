@@ -1183,7 +1183,7 @@ class AemDialogGeneratorPlugin {
     const nodeName = name || this.generateDeterministicNodeName('columns', { columns, ...otherProps });
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       nodeName,
       {
         'sling:resourceType':
@@ -1232,7 +1232,7 @@ class AemDialogGeneratorPlugin {
 
     xml += this.closeNodes([
       [this.getIndentLevel(this.I.FN), 'items'],
-      [this.I.F, nodeName],
+      [this.getIndentLevel(this.I.F), nodeName],
     ]);
 
     return xml;
@@ -1246,7 +1246,7 @@ class AemDialogGeneratorPlugin {
     const sanitizedName = this.sanitizeNodeName(nodeName);
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       sanitizedName,
       { 'sling:resourceType': 'granite/ui/components/coral/foundation/well' },
       'none'
@@ -1271,7 +1271,7 @@ class AemDialogGeneratorPlugin {
 
     xml += this.closeNodes([
       [this.getIndentLevel(this.I.FN), 'items'],
-      [this.I.F, sanitizedName],
+      [this.getIndentLevel(this.I.F), sanitizedName],
     ]);
 
     return xml;
@@ -1284,7 +1284,7 @@ class AemDialogGeneratorPlugin {
     const resourceType = this.getResourceType('heading');
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       nodeName,
       { 'sling:resourceType': resourceType },
       'none'
@@ -1313,7 +1313,7 @@ class AemDialogGeneratorPlugin {
     const resourceType = this.getResourceType('text');
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       nodeName,
       { 'sling:resourceType': resourceType },
       'none'
@@ -1339,7 +1339,13 @@ class AemDialogGeneratorPlugin {
       label,
       description,
       required = false,
+      disabled = false,
+      multiple = false,
+      forceSelection = false,
       rootPath = '/content/cq:tags',
+      displayProperty,
+      valueProperty,
+      typeHint,
       ...otherProps
     } = field;
 
@@ -1348,7 +1354,7 @@ class AemDialogGeneratorPlugin {
     const resourceType = this.getResourceType('tags');
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       nodeName,
       { 'sling:resourceType': resourceType },
       'none'
@@ -1359,17 +1365,26 @@ class AemDialogGeneratorPlugin {
       fieldDescription: description,
       name: fieldName,
       rootPath,
+      displayProperty,
+      valueProperty,
+      typeHint,
     });
 
     xml = this.appendAttribute(
       xml,
       this.getIndentLevel(this.I.FA),
-      { required },
+      { required, multiple, forceSelection, disabled },
       { isBoolean: true }
     );
     xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'rootPath',
+      'multiple',
+      'forceSelection',
+      'displayProperty',
+      'valueProperty',
+      'typeHint',
+      'disabled',
     ]);
 
     xml = this.selfClose(xml);
@@ -1383,11 +1398,17 @@ class AemDialogGeneratorPlugin {
       label,
       description,
       required = false,
+      disabled = false,
+      multiple = false,
       uploadUrl,
       allowUpload = true,
+      autoStart = true,
+      async = true,
+      sizeLimit,
       mimeTypes,
       fileNameParameter = './fileName',
       fileReferenceParameter = './fileReference',
+      typeHint,
       ...otherProps
     } = field;
 
@@ -1396,7 +1417,7 @@ class AemDialogGeneratorPlugin {
     const resourceType = this.getResourceType('image');
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       nodeName,
       { 'sling:resourceType': resourceType },
       'none'
@@ -1409,12 +1430,14 @@ class AemDialogGeneratorPlugin {
       uploadUrl,
       fileNameParameter,
       fileReferenceParameter,
+      sizeLimit: sizeLimit !== undefined ? `{Long}${sizeLimit}` : undefined,
+      typeHint,
     });
 
     xml = this.appendAttribute(
       xml,
       this.getIndentLevel(this.I.FA),
-      { required },
+      { required, multiple, autoStart, async, disabled },
       { isBoolean: true }
     );
     xml = this.appendAttribute(
@@ -1439,6 +1462,12 @@ class AemDialogGeneratorPlugin {
       'mimeTypes',
       'fileNameParameter',
       'fileReferenceParameter',
+      'multiple',
+      'autoStart',
+      'async',
+      'sizeLimit',
+      'typeHint',
+      'disabled',
     ]);
 
     xml = this.selfClose(xml);
@@ -1452,9 +1481,14 @@ class AemDialogGeneratorPlugin {
       label,
       description,
       required = false,
+      disabled = false,
       multiple = false,
       datasource,
       forceSelection = true,
+      mode,
+      valueProperty,
+      displayProperty,
+      typeHint,
       ...otherProps
     } = field;
 
@@ -1463,7 +1497,7 @@ class AemDialogGeneratorPlugin {
     const resourceType = this.getResourceType('autocomplete');
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       nodeName,
       { 'sling:resourceType': resourceType },
       'none'
@@ -1473,20 +1507,33 @@ class AemDialogGeneratorPlugin {
       fieldLabel: label,
       fieldDescription: description,
       name: fieldName,
+      mode,
+      valueProperty,
+      displayProperty,
+      typeHint,
     });
 
     xml = this.appendAttribute(
       xml,
       this.getIndentLevel(this.I.FA),
-      { required, multiple },
+      { required, multiple, disabled },
       { isBoolean: true }
     );
     xml = this.appendAttribute(
       xml,
       this.getIndentLevel(this.I.FA),
-      { forceSelection, ...otherProps },
+      { forceSelection },
       { allowFalsy: true }
     );
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
+      'type',
+      'datasource',
+      'mode',
+      'valueProperty',
+      'displayProperty',
+      'typeHint',
+      'disabled',
+    ]);
 
     if (datasource) {
       xml = this.openBlock(xml);
@@ -1507,7 +1554,9 @@ class AemDialogGeneratorPlugin {
       label,
       description,
       required = false,
+      disabled = false,
       vertical = false,
+      defaultValue,
       options = [],
       ...otherProps
     } = field;
@@ -1517,7 +1566,7 @@ class AemDialogGeneratorPlugin {
     const resourceType = this.getResourceType('radiogroup');
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       nodeName,
       { 'sling:resourceType': resourceType },
       'none'
@@ -1527,18 +1576,21 @@ class AemDialogGeneratorPlugin {
       fieldLabel: label,
       fieldDescription: description,
       name: fieldName,
+      value: defaultValue?.toString(),
     });
 
     xml = this.appendAttribute(
       xml,
       this.getIndentLevel(this.I.FA),
-      { required, vertical },
+      { required, vertical, disabled },
       { isBoolean: true }
     );
     xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'options',
       'vertical',
+      'defaultValue',
+      'disabled',
     ]);
 
     if (options && Array.isArray(options) && options.length > 0) {
@@ -1560,7 +1612,15 @@ class AemDialogGeneratorPlugin {
       label,
       description,
       required = false,
+      disabled = false,
+      multiple = false,
       rootPath = '/content',
+      filter,
+      pickerSrc,
+      pickerTitle,
+      pickerMultiselect = false,
+      forceSelection = false,
+      typeHint,
       ...otherProps
     } = field;
 
@@ -1569,7 +1629,7 @@ class AemDialogGeneratorPlugin {
     const resourceType = this.getResourceType('pagefield');
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       nodeName,
       { 'sling:resourceType': resourceType },
       'none'
@@ -1580,17 +1640,29 @@ class AemDialogGeneratorPlugin {
       fieldDescription: description,
       name: fieldName,
       rootPath,
+      filter,
+      pickerSrc,
+      pickerTitle,
+      typeHint,
     });
 
     xml = this.appendAttribute(
       xml,
       this.getIndentLevel(this.I.FA),
-      { required },
+      { required, multiple, pickerMultiselect, forceSelection, disabled },
       { isBoolean: true }
     );
     xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'rootPath',
+      'multiple',
+      'filter',
+      'pickerSrc',
+      'pickerTitle',
+      'pickerMultiselect',
+      'forceSelection',
+      'typeHint',
+      'disabled',
     ]);
 
     xml = this.selfClose(xml);
@@ -1604,8 +1676,13 @@ class AemDialogGeneratorPlugin {
       label,
       description,
       required = false,
+      disabled = false,
+      multiple = false,
       rootPath = '/content/dam',
       fragmentModel,
+      filter,
+      pickerSrc,
+      typeHint,
       ...otherProps
     } = field;
 
@@ -1614,7 +1691,7 @@ class AemDialogGeneratorPlugin {
     const resourceType = this.getResourceType('contentfragmentpicker');
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       nodeName,
       { 'sling:resourceType': resourceType },
       'none'
@@ -1626,18 +1703,26 @@ class AemDialogGeneratorPlugin {
       name: fieldName,
       rootPath,
       fragmentPath: fragmentModel,
+      filter,
+      pickerSrc,
+      typeHint,
     });
 
     xml = this.appendAttribute(
       xml,
       this.getIndentLevel(this.I.FA),
-      { required },
+      { required, multiple, disabled },
       { isBoolean: true }
     );
     xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'rootPath',
       'fragmentModel',
+      'multiple',
+      'filter',
+      'pickerSrc',
+      'typeHint',
+      'disabled',
     ]);
 
     xml = this.selfClose(xml);
@@ -1651,7 +1736,12 @@ class AemDialogGeneratorPlugin {
       label,
       description,
       required = false,
+      disabled = false,
+      multiple = false,
       rootPath = '/content/experience-fragments',
+      filter,
+      pickerSrc,
+      typeHint,
       ...otherProps
     } = field;
 
@@ -1660,7 +1750,7 @@ class AemDialogGeneratorPlugin {
     const resourceType = this.getResourceType('experiencefragmentpicker');
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       nodeName,
       { 'sling:resourceType': resourceType },
       'none'
@@ -1671,17 +1761,25 @@ class AemDialogGeneratorPlugin {
       fieldDescription: description,
       name: fieldName,
       rootPath,
+      filter,
+      pickerSrc,
+      typeHint,
     });
 
     xml = this.appendAttribute(
       xml,
       this.getIndentLevel(this.I.FA),
-      { required },
+      { required, multiple, disabled },
       { isBoolean: true }
     );
     xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'rootPath',
+      'multiple',
+      'filter',
+      'pickerSrc',
+      'typeHint',
+      'disabled',
     ]);
 
     xml = this.selfClose(xml);
@@ -1695,8 +1793,16 @@ class AemDialogGeneratorPlugin {
       label,
       description,
       required = false,
+      disabled = false,
+      multiple = false,
       rootPath = '/content/dam',
       mimeTypes,
+      filter,
+      pickerSrc,
+      pickerTitle,
+      pickerMultiselect = false,
+      forceSelection = false,
+      typeHint,
       ...otherProps
     } = field;
 
@@ -1705,7 +1811,7 @@ class AemDialogGeneratorPlugin {
     const resourceType = this.getResourceType('assetpicker');
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       nodeName,
       { 'sling:resourceType': resourceType },
       'none'
@@ -1716,13 +1822,17 @@ class AemDialogGeneratorPlugin {
       fieldDescription: description,
       name: fieldName,
       rootPath,
+      filter,
+      pickerSrc,
+      pickerTitle,
+      typeHint,
       ...(mimeTypes && Array.isArray(mimeTypes) && { mimeTypes }),
     });
 
     xml = this.appendAttribute(
       xml,
       this.getIndentLevel(this.I.FA),
-      { required },
+      { required, multiple, pickerMultiselect, forceSelection, disabled },
       { isBoolean: true }
     );
 
@@ -1730,6 +1840,14 @@ class AemDialogGeneratorPlugin {
       'type',
       'rootPath',
       'mimeTypes',
+      'multiple',
+      'filter',
+      'pickerSrc',
+      'pickerTitle',
+      'pickerMultiselect',
+      'forceSelection',
+      'typeHint',
+      'disabled',
     ]);
 
     xml = this.selfClose(xml);
@@ -1745,6 +1863,8 @@ class AemDialogGeneratorPlugin {
       icon,
       command,
       handler,
+      disabled = false,
+      type,
       ...otherProps
     } = field;
 
@@ -1754,7 +1874,7 @@ class AemDialogGeneratorPlugin {
       this.generateDeterministicNodeName('button', { text, variant, icon, command, handler });
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       nodeName,
       { 'sling:resourceType': 'granite/ui/components/coral/foundation/button' },
       'none'
@@ -1764,7 +1884,15 @@ class AemDialogGeneratorPlugin {
       variant,
       icon,
       command,
+      type,
     });
+
+    xml = this.appendAttribute(
+      xml,
+      this.getIndentLevel(this.I.FA),
+      { disabled },
+      { isBoolean: true }
+    );
 
     if (handler) {
       xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
@@ -1779,6 +1907,7 @@ class AemDialogGeneratorPlugin {
       'icon',
       'command',
       'handler',
+      'disabled',
     ]);
 
     xml = this.selfClose(xml);
@@ -1792,7 +1921,12 @@ class AemDialogGeneratorPlugin {
       label,
       description,
       required = false,
+      disabled = false,
+      readOnly = false,
       useFixedInlineToolbar = false,
+      height,
+      width,
+      maxlength,
       features = ['*'],
       ...otherProps
     } = field;
@@ -1802,7 +1936,7 @@ class AemDialogGeneratorPlugin {
     const resourceType = this.getResourceType('rte');
 
     let xml = this.buildNode(
-      this.I.F,
+      this.getIndentLevel(this.I.F),
       nodeName,
       { 'sling:resourceType': resourceType },
       'none'
@@ -1811,17 +1945,25 @@ class AemDialogGeneratorPlugin {
       name: fieldName,
       fieldLabel: label,
       fieldDescription: description,
+      height,
+      width,
+      maxlength: maxlength !== undefined ? `{Long}${maxlength}` : undefined,
     });
 
     xml = this.appendAttribute(
       xml,
       this.getIndentLevel(this.I.FA),
-      { required, useFixedInlineToolbar },
+      { required, useFixedInlineToolbar, disabled, readOnly },
       { isBoolean: true }
     );
     xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
       'type',
       'features',
+      'height',
+      'width',
+      'maxlength',
+      'disabled',
+      'readOnly',
     ]);
 
     xml = this.openBlock(xml);
@@ -1871,7 +2013,7 @@ class AemDialogGeneratorPlugin {
       [this.getIndentLevel(this.I.FNI) + 1, 'inline'],
       [this.getIndentLevel(this.I.FNI), 'cui'],
       [this.getIndentLevel(this.I.FN), 'uiSettings'],
-      [this.I.F, nodeName],
+      [this.getIndentLevel(this.I.F), nodeName],
     ]);
 
     return xml;

@@ -742,6 +742,8 @@ Adds clickable buttons to trigger actions:
 | `icon` | String | Coral UI icon name | - |
 | `command` | String | Command to execute | - |
 | `handler` | String | JavaScript handler file | - |
+| `type` | String | Button type attribute | - |
+| `disabled` | Boolean | Disable the button | `false` |
 
 **Use Cases:**
 - Trigger content generation
@@ -1024,6 +1026,8 @@ Displays a group of radio buttons. Better than select when you have 2-4 options 
 | `label` | String | Field label (required) | - |
 | `options` | Array | Radio button options (required) | - |
 | `vertical` | Boolean | Stack radio buttons vertically | `false` |
+| `defaultValue` | Any | Default selected value | - |
+| `disabled` | Boolean | Disable the field | `false` |
 | `required` | Boolean | Make field mandatory | `false` |
 
 **Option Properties:**
@@ -1057,6 +1061,14 @@ Provides an AEM-specific page selector with content tree navigation. Essential f
 | `name` | String | Property name (required) | - |
 | `label` | String | Field label (required) | - |
 | `rootPath` | String | Root path in content tree | `/content` |
+| `multiple` | Boolean | Allow multiple page selection | `false` |
+| `filter` | String | Filter node types or properties | - |
+| `pickerSrc` | String | Custom picker dialog source | - |
+| `pickerTitle` | String | Custom picker dialog title | - |
+| `pickerMultiselect` | Boolean | Enable multiselect in picker | `false` |
+| `forceSelection` | Boolean | Only allow values from picker | `false` |
+| `typeHint` | String | JCR/Sling type hint | - |
+| `disabled` | Boolean | Disable the field | `false` |
 | `required` | Boolean | Make field mandatory | `false` |
 
 **Common Use Cases:**
@@ -1088,6 +1100,11 @@ Provides a Content Fragment picker for selecting structured content. Essential f
 | `label` | String | Field label (required) | - |
 | `rootPath` | String | Root path in DAM | `/content/dam` |
 | `fragmentModel` | String | Path to specific Content Fragment Model | - |
+| `multiple` | Boolean | Allow multiple fragment selection | `false` |
+| `filter` | String | Filter fragment types | - |
+| `pickerSrc` | String | Custom picker dialog source | - |
+| `typeHint` | String | JCR/Sling type hint | - |
+| `disabled` | Boolean | Disable the field | `false` |
 | `required` | Boolean | Make field mandatory | `false` |
 
 **Common Use Cases:**
@@ -1117,6 +1134,11 @@ Provides an Experience Fragment picker for reusable component compositions. Perf
 | `name` | String | Property name (required) | - |
 | `label` | String | Field label (required) | - |
 | `rootPath` | String | Root path for XF | `/content/experience-fragments` |
+| `multiple` | Boolean | Allow multiple XF selection | `false` |
+| `filter` | String | Filter XF types | - |
+| `pickerSrc` | String | Custom picker dialog source | - |
+| `typeHint` | String | JCR/Sling type hint | - |
+| `disabled` | Boolean | Disable the field | `false` |
 | `required` | Boolean | Make field mandatory | `false` |
 
 **Common Use Cases:**
@@ -1148,6 +1170,14 @@ Provides a generic DAM asset picker with mime type filtering. More flexible than
 | `label` | String | Field label (required) | - |
 | `rootPath` | String | Root path in DAM | `/content/dam` |
 | `mimeTypes` | Array | Allowed mime types | - |
+| `multiple` | Boolean | Allow multiple asset selection | `false` |
+| `filter` | String | Filter asset types | - |
+| `pickerSrc` | String | Custom picker dialog source | - |
+| `pickerTitle` | String | Custom picker dialog title | - |
+| `pickerMultiselect` | Boolean | Enable multiselect in picker | `false` |
+| `forceSelection` | Boolean | Only allow values from picker | `false` |
+| `typeHint` | String | JCR/Sling type hint | - |
+| `disabled` | Boolean | Disable the field | `false` |
 | `required` | Boolean | Make field mandatory | `false` |
 
 **Common Use Cases:**
@@ -1164,9 +1194,29 @@ Provides a generic DAM asset picker with mime type filtering. More flexible than
   "name": "./text",
   "label": "Content",
   "required": true,
+  "disabled": false,
+  "readOnly": false,
+  "height": "300px",
+  "width": "100%",
+  "maxlength": 5000,
   "features": ["bold", "italic", "underline", "links", "lists"]
 }
 ```
+
+**Properties:**
+
+| Property | Type | Description | Default |
+|----------|------|-------------|---------|  
+| `name` | String | Property name (required) | - |
+| `label` | String | Field label (required) | - |
+| `required` | Boolean | Make field mandatory | `false` |
+| `disabled` | Boolean | Disable the editor | `false` |
+| `readOnly` | Boolean | Make editor read-only | `false` |
+| `height` | String | Editor height (CSS value) | - |
+| `width` | String | Editor width (CSS value) | - |
+| `maxlength` | Number | Maximum character count | - |
+| `useFixedInlineToolbar` | Boolean | Use fixed inline toolbar | `false` |
+| `features` | Array | Enabled RTE features | `['*']` |
 
 Use `"features": ["*"]` for all features, or specify individual ones:
 - `"bold"`, `"italic"`, `"underline"` - Text formatting
