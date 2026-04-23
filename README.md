@@ -9,6 +9,8 @@ A Webpack plugin that automatically generates AEM component `_cq_dialog.xml` and
 ## Features
 
 ✨ **27 Field Types Supported** - textfield, textarea, select, pathfield, pagefield, checkbox, multifield, RTE, fieldset, container, heading, text/alert, tags, image, autocomplete, radiogroup, contentfragmentpicker, experiencefragmentpicker, assetpicker, hidden, button, well, and more  
+🔌 **Custom Resource Types** - Override `sling:resourceType` on any field via `resourceType` for unsupported or project-specific components  
+🗄️ **Extended Datasource** - `datasource` accepts a string, an object with extra attributes (e.g. `rootPath`), or a shorthand `type` (`"tags"`) for built-in AEM datasources  
 🎨 **Flexible Layouts** - Tabs, simple layouts, accordion, or fieldsets for organization  
 🔄 **Auto-generation** - XML files generated on every webpack build  
 📝 **Simple JSON** - Easy-to-read configuration instead of verbose XML  
@@ -179,6 +181,19 @@ Complement `trackingFeature` to identify a specific element interaction.
 
 ```json
 { "type": "textfield", "name": "./ctaText", "label": "CTA Text", "trackingFeature": "hero", "trackingElement": "cta" }
+```
+
+### resourceType (custom sling:resourceType)
+Override the `sling:resourceType` for any field. Use this for project-specific or unsupported components. Extra properties like `rootPath` are passed through as XML attributes automatically.
+
+```json
+{
+  "type": "custom",
+  "name": "./custom",
+  "label": "Custom Field",
+  "resourceType": "mysite/components/customfield",
+  "rootPath": "/content/dam"
+}
 ```
 
 ## What's New in v2.0.0 🎉
@@ -575,7 +590,7 @@ This follows AEM best practices and ensures policies are properly organized.
 ## Advanced Properties
 
 - Show/Hide by expression: use `showIf` or `hideIf` to emit `granite:hide` and control field visibility.
-- Select datasource: add `datasource` (child node), `emptyOption`, `forceSelection`.
+- Select datasource: add `datasource` (child node), `emptyOption`, `forceSelection`. Accepts three forms: a plain string (`sling:resourceType`), an object with `resourceType` plus extra attributes, or an object with `type` shorthand for built-in AEM datasources (`"tags"`).
 - Validation messages: override built-ins with `requiredMessage`, `minMessage`, `maxMessage`, `patternMessage`.
 - Order fields: place with `orderBefore` (emits `sling:orderBefore`).
 - Granite data: set `data: { key: value }` → `granite:data-key="value"` on the field.
@@ -605,6 +620,18 @@ Examples:
   "emptyOption": true,
   "forceSelection": true,
   "datasource": "/apps/mysite/datasources/categories"
+}
+```
+
+```json
+{
+  "type": "select",
+  "name": "./tag",
+  "label": "Select Tag",
+  "datasource": {
+    "type": "tags",
+    "rootPath": "/content/cq:tags/products"
+  }
 }
 ```
 

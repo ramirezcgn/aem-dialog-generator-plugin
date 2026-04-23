@@ -195,6 +195,29 @@ describe('AemDialogGeneratorPlugin', () => {
           'granite/ui/components/coral/foundation/form/textfield'
         );
       });
+
+      test('should use resourceType override instead of type lookup', () => {
+        const field = {
+          type: 'textfield',
+          name: './custom',
+          label: 'Custom',
+          resourceType: 'mysite/components/form/customfield',
+        };
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('sling:resourceType="mysite/components/form/customfield"');
+        expect(xml).not.toContain('granite/ui/components/coral/foundation/form/textfield');
+      });
+
+      test('should support unknown type with resourceType', () => {
+        const field = {
+          type: 'custom',
+          name: './custom',
+          label: 'Custom',
+          resourceType: 'mysite/components/form/customfield',
+        };
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('sling:resourceType="mysite/components/form/customfield"');
+      });
     });
   });
 
@@ -1270,6 +1293,41 @@ describe('AemDialogGeneratorPlugin', () => {
         expect(xml).toContain('forceSelection="{Boolean}true"');
         expect(xml).toContain('<datasource');
         expect(xml).toContain('sling:resourceType="/apps/mysite/datasources/categories"');
+      });
+
+      test('should generate datasource node with extra attributes when datasource is an object', () => {
+        const field = {
+          type: 'select',
+          name: './tag',
+          label: 'Seleccionar Tag',
+          datasource: {
+            resourceType: 'cq/gui/components/common/datasources/tags',
+            rootPath: '/content/cq:tags/productos',
+          },
+        };
+
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('<datasource');
+        expect(xml).toContain('sling:resourceType="cq/gui/components/common/datasources/tags"');
+        expect(xml).toContain('rootPath="/content/cq:tags/productos"');
+      });
+
+      test('should resolve datasource type shorthand to resourceType', () => {
+        const field = {
+          type: 'select',
+          name: './tag',
+          label: 'Seleccionar Tag',
+          datasource: {
+            type: 'tags',
+            rootPath: '/content/cq:tags/productos',
+          },
+        };
+
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('<datasource');
+        expect(xml).toContain('sling:resourceType="cq/gui/components/common/datasources/tags"');
+        expect(xml).toContain('rootPath="/content/cq:tags/productos"');
+        expect(xml).not.toContain('type="tags"');
       });
     });
 

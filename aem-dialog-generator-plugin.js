@@ -528,6 +528,7 @@ class AemDialogGeneratorPlugin {
       cqShowHide = false,
       showhideTarget,
       showhideClass,
+      resourceType,
       ...otherProps
     } = field;
 
@@ -595,14 +596,14 @@ class AemDialogGeneratorPlugin {
       return this.generateButton(field);
     }
 
-    const resourceType = this.getResourceType(type);
+    const resolvedResourceType = resourceType || this.getResourceType(type);
     const fieldName = this.getFieldName(name);
     const nodeName = this.sanitizeNodeName(fieldName);
 
     let xml = this.buildNode(
       this.getIndentLevel(this.I.F),
       nodeName,
-      { 'sling:resourceType': resourceType },
+      { 'sling:resourceType': resolvedResourceType },
       'none'
     );
 
@@ -851,8 +852,12 @@ class AemDialogGeneratorPlugin {
       }
       
       if (type === 'select' && datasource) {
+        const dsObj = typeof datasource === 'object' ? datasource : { resourceType: datasource };
+        const { type: dsType, resourceType: dsResourceType, ...dsExtra } = dsObj;
+        const resolvedResourceType = dsType ? this.getDatasourceResourceType(dsType) : dsResourceType;
         xml += this.buildNode(this.getIndentLevel(this.I.FN), 'datasource', {
-          'sling:resourceType': datasource,
+          'sling:resourceType': resolvedResourceType,
+          ...dsExtra,
         });
       }
       if (renderCondition && renderCondition.type) {
@@ -947,8 +952,12 @@ class AemDialogGeneratorPlugin {
       }
       
       if (type === 'select' && datasource) {
+        const dsObj = typeof datasource === 'object' ? datasource : { resourceType: datasource };
+        const { type: dsType, resourceType: dsResourceType, ...dsExtra } = dsObj;
+        const resolvedResourceType = dsType ? this.getDatasourceResourceType(dsType) : dsResourceType;
         xml += this.buildNode(this.getIndentLevel(this.I.FN), 'datasource', {
-          'sling:resourceType': datasource,
+          'sling:resourceType': resolvedResourceType,
+          ...dsExtra,
         });
       }
       if (renderCondition && renderCondition.type) {
@@ -1032,6 +1041,13 @@ class AemDialogGeneratorPlugin {
     }
 
     return xml;
+  }
+
+  getDatasourceResourceType(type) {
+    const datasourceTypes = {
+      tags: 'cq/gui/components/common/datasources/tags',
+    };
+    return datasourceTypes[type];
   }
 
   getResourceType(type) {
