@@ -2161,6 +2161,64 @@ describe('AemDialogGeneratorPlugin', () => {
         const linkUrlLine = lines.find(l => l.includes('<linkUrl'));
         expect(linkUrlLine).toMatch(/^\s{24}<linkUrl/);
       });
+
+      test('should generate datasource node for select inside composite multifield', () => {
+        const multifield = {
+          name: './sizes',
+          label: 'Sizes',
+          composite: true,
+          items: [
+            {
+              type: 'select',
+              name: './size',
+              label: 'Size',
+              datasource: {
+                type: 'tags',
+                rootPath: '/content/cq:tags',
+              },
+            },
+          ],
+        };
+
+        const xml = plugin.generateMultifield(multifield);
+
+        expect(xml).toContain('<datasource');
+        expect(xml).toContain('sling:resourceType="cq/gui/components/common/datasources/tags"');
+        expect(xml).toContain('rootPath="/content/cq:tags"');
+        expect(xml).not.toContain('datasource="[object Object]"');
+      });
+
+      test('should generate datasource node for select inside multifield fieldset item', () => {
+        const multifield = {
+          name: './sizes',
+          label: 'Sizes',
+          composite: true,
+          items: [
+            {
+              type: 'fieldset',
+              name: 'sizeData',
+              fields: [
+                {
+                  type: 'select',
+                  name: './size',
+                  label: 'Size',
+                  datasource: {
+                    type: 'tags',
+                    rootPath: '/content/cq:tags',
+                  },
+                },
+              ],
+            },
+          ],
+        };
+
+        const xml = plugin.generateMultifield(multifield);
+
+        expect(xml).toContain('<datasource');
+        expect(xml).toContain('sling:resourceType="cq/gui/components/common/datasources/tags"');
+        expect(xml).toContain('rootPath="/content/cq:tags"');
+        expect(xml).not.toContain('datasource="[object Object]"');
+      });
     });
 
     describe('generateHeading', () => {

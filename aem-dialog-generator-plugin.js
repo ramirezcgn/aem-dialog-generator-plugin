@@ -852,13 +852,7 @@ class AemDialogGeneratorPlugin {
       }
       
       if (type === 'select' && datasource) {
-        const dsObj = typeof datasource === 'object' ? datasource : { resourceType: datasource };
-        const { type: dsType, resourceType: dsResourceType, ...dsExtra } = dsObj;
-        const resolvedResourceType = dsType ? this.getDatasourceResourceType(dsType) : dsResourceType;
-        xml += this.buildNode(this.getIndentLevel(this.I.FN), 'datasource', {
-          'sling:resourceType': resolvedResourceType,
-          ...dsExtra,
-        });
+        xml += this.buildDatasourceNode(this.getIndentLevel(this.I.FN), datasource);
       }
       if (renderCondition && renderCondition.type) {
         const rcMap = {
@@ -952,13 +946,7 @@ class AemDialogGeneratorPlugin {
       }
       
       if (type === 'select' && datasource) {
-        const dsObj = typeof datasource === 'object' ? datasource : { resourceType: datasource };
-        const { type: dsType, resourceType: dsResourceType, ...dsExtra } = dsObj;
-        const resolvedResourceType = dsType ? this.getDatasourceResourceType(dsType) : dsResourceType;
-        xml += this.buildNode(this.getIndentLevel(this.I.FN), 'datasource', {
-          'sling:resourceType': resolvedResourceType,
-          ...dsExtra,
-        });
+        xml += this.buildDatasourceNode(this.getIndentLevel(this.I.FN), datasource);
       }
       if (renderCondition && renderCondition.type) {
         const rcMap = {
@@ -1048,6 +1036,25 @@ class AemDialogGeneratorPlugin {
       tags: 'cq/gui/components/common/datasources/tags',
     };
     return datasourceTypes[type];
+  }
+
+  buildDatasourceNode(level, datasource) {
+    if (!datasource) {
+      return '';
+    }
+
+    const dsObj = typeof datasource === 'object' ? datasource : { resourceType: datasource };
+    const { type: dsType, resourceType: dsResourceType, ...dsExtra } = dsObj;
+    const resolvedResourceType = dsType ? this.getDatasourceResourceType(dsType) : dsResourceType;
+
+    if (!resolvedResourceType) {
+      return '';
+    }
+
+    return this.buildNode(level, 'datasource', {
+      'sling:resourceType': resolvedResourceType,
+      ...dsExtra,
+    });
   }
 
   getResourceType(type) {
@@ -2229,6 +2236,7 @@ class AemDialogGeneratorPlugin {
       required = false,
       defaultValue,
       options,
+      datasource,
       ...otherProps
     } = field;
 
@@ -2277,15 +2285,26 @@ class AemDialogGeneratorPlugin {
 
     xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.MI) + 1, otherProps, [
       'options',
+      'datasource',
       'fields',
       'items',
     ]);
 
-    if (options && Array.isArray(options) && options.length > 0) {
+    if (
+      (options && Array.isArray(options) && options.length > 0) ||
+      (type === 'select' && datasource)
+    ) {
       xml = this.openBlock(xml);
-      xml += this.buildNode(this.getIndentLevel(this.I.MI) + 3, 'items', {}, 'open');
-      xml += this.appendOptions(options, this.getIndentLevel(this.I.MI) + 4);
-      xml += this.closeNode(this.getIndentLevel(this.I.MI) + 3, 'items');
+      if (options && Array.isArray(options) && options.length > 0) {
+        xml += this.buildNode(this.getIndentLevel(this.I.MI) + 3, 'items', {}, 'open');
+        xml += this.appendOptions(options, this.getIndentLevel(this.I.MI) + 4);
+        xml += this.closeNode(this.getIndentLevel(this.I.MI) + 3, 'items');
+      }
+
+      if (type === 'select' && datasource) {
+        xml += this.buildDatasourceNode(this.getIndentLevel(this.I.MI) + 3, datasource);
+      }
+
       xml += this.closeNode(this.getIndentLevel(this.I.MI) + 2, nodeName);
     } else {
       xml = this.selfClose(xml);
@@ -2362,6 +2381,7 @@ class AemDialogGeneratorPlugin {
       required = false,
       defaultValue,
       options,
+      datasource,
       ...otherProps
     } = field;
 
@@ -2391,15 +2411,26 @@ class AemDialogGeneratorPlugin {
 
     xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.MI) + 3, otherProps, [
       'options',
+      'datasource',
       'fields',
       'items',
     ]);
 
-    if (options && Array.isArray(options) && options.length > 0) {
+    if (
+      (options && Array.isArray(options) && options.length > 0) ||
+      (type === 'select' && datasource)
+    ) {
       xml = this.openBlock(xml);
-      xml += this.buildNode(this.getIndentLevel(this.I.MI) + 3, 'items', {}, 'open');
-      xml += this.appendOptions(options, this.getIndentLevel(this.I.MI) + 4);
-      xml += this.closeNode(this.getIndentLevel(this.I.MI) + 3, 'items');
+      if (options && Array.isArray(options) && options.length > 0) {
+        xml += this.buildNode(this.getIndentLevel(this.I.MI) + 3, 'items', {}, 'open');
+        xml += this.appendOptions(options, this.getIndentLevel(this.I.MI) + 4);
+        xml += this.closeNode(this.getIndentLevel(this.I.MI) + 3, 'items');
+      }
+
+      if (type === 'select' && datasource) {
+        xml += this.buildDatasourceNode(this.getIndentLevel(this.I.MI) + 3, datasource);
+      }
+
       xml += this.closeNode(this.getIndentLevel(this.I.MI) + 2, nodeName);
     } else {
       xml = this.selfClose(xml);
