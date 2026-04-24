@@ -2296,16 +2296,16 @@ class AemDialogGeneratorPlugin {
     ) {
       xml = this.openBlock(xml);
       if (options && Array.isArray(options) && options.length > 0) {
-        xml += this.buildNode(this.getIndentLevel(this.I.MI) + 3, 'items', {}, 'open');
-        xml += this.appendOptions(options, this.getIndentLevel(this.I.MI) + 4);
-        xml += this.closeNode(this.getIndentLevel(this.I.MI) + 3, 'items');
+        xml += this.buildNode(this.getIndentLevel(this.I.MI) + 1, 'items', {}, 'open');
+        xml += this.appendOptions(options, this.getIndentLevel(this.I.MI) + 2);
+        xml += this.closeNode(this.getIndentLevel(this.I.MI) + 1, 'items');
       }
 
       if (type === 'select' && datasource) {
-        xml += this.buildDatasourceNode(this.getIndentLevel(this.I.MI) + 3, datasource);
+        xml += this.buildDatasourceNode(this.getIndentLevel(this.I.MI) + 1, datasource);
       }
 
-      xml += this.closeNode(this.getIndentLevel(this.I.MI) + 2, nodeName);
+      xml += this.closeNode(this.getIndentLevel(this.I.MI), nodeName);
     } else {
       xml = this.selfClose(xml);
     }
