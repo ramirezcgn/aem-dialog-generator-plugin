@@ -333,7 +333,11 @@ class AemDialogGeneratorPlugin {
       xml += this.withIndentLevel(4, () => {
         let result = '';
         tabs.forEach((tab, index) => {
-          result += this.generateTab(tab, index);
+          if (tab.type === 'include' || tab.type === 'styletab') {
+            result += this.withIndentLevel(this.getIndentLevel(1), () => this.generateInclude(tab));
+          } else {
+            result += this.generateTab(tab, index);
+          }
         });
         return result;
       });
@@ -2788,7 +2792,11 @@ class AemDialogGeneratorPlugin {
       xml += this.withIndentLevel(3, () => {
         let result = '';
         for (const [index, tab] of tabs.entries()) {
-          result += this.generateTab(tab, index);
+          if (tab.type === 'include' || tab.type === 'styletab') {
+            result += this.withIndentLevel(this.getIndentLevel(1), () => this.generateInclude(tab));
+          } else {
+            result += this.generateTab(tab, index);
+          }
         }
         
         if (config.policy && config.policy.styleGroups && config.policy.styleGroups.length > 0) {

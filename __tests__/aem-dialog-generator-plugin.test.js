@@ -1764,6 +1764,116 @@ describe('AemDialogGeneratorPlugin', () => {
       });
     });
 
+    describe('generateInclude (include / styletab types)', () => {
+      test('should generate styletab with default path and node name', () => {
+        const field = { type: 'styletab' };
+
+        const xml = plugin.generateInclude(field);
+
+        expect(xml).toContain('<styletab');
+        expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/include"');
+        expect(xml).toContain('path="/mnt/overlay/cq/gui/components/authoring/dialog/style/tab_edit/styletab"');
+        expect(xml).toContain('jcr:primaryType="nt:unstructured"');
+        expect(xml).toMatch(/\/>$/m);
+      });
+
+      test('should generate styletab with custom node name', () => {
+        const field = { type: 'styletab', name: 'myStyles' };
+
+        const xml = plugin.generateInclude(field);
+
+        expect(xml).toContain('<myStyles');
+        expect(xml).toContain('path="/mnt/overlay/cq/gui/components/authoring/dialog/style/tab_edit/styletab"');
+      });
+
+      test('should generate include with custom path', () => {
+        const field = {
+          type: 'include',
+          name: 'customInclude',
+          path: '/mnt/overlay/some/custom/path',
+        };
+
+        const xml = plugin.generateInclude(field);
+
+        expect(xml).toContain('<customInclude');
+        expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/include"');
+        expect(xml).toContain('path="/mnt/overlay/some/custom/path"');
+      });
+
+      test('should generate include with auto node name when name not provided', () => {
+        const field = {
+          type: 'include',
+          path: '/mnt/overlay/some/path',
+        };
+
+        const xml = plugin.generateInclude(field);
+
+        expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/include"');
+        expect(xml).toContain('path="/mnt/overlay/some/path"');
+        expect(xml).not.toContain('<styletab');
+      });
+
+      test('should dispatch styletab type through generateField', () => {
+        const field = { type: 'styletab' };
+
+        const xml = plugin.generateField(field);
+
+        expect(xml).toContain('<styletab');
+        expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/include"');
+        expect(xml).toContain('path="/mnt/overlay/cq/gui/components/authoring/dialog/style/tab_edit/styletab"');
+      });
+
+      test('should dispatch include type through generateField', () => {
+        const field = { type: 'include', name: 'myInc', path: '/some/path' };
+
+        const xml = plugin.generateField(field);
+
+        expect(xml).toContain('<myInc');
+        expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/include"');
+        expect(xml).toContain('path="/some/path"');
+      });
+
+      test('styletab in tabs array should render as include node, not as a regular tab', () => {
+        const config = {
+          title: 'Test Component',
+          tabs: [
+            {
+              title: 'Properties',
+              fields: [{ type: 'textfield', name: './title', label: 'Title' }],
+            },
+            { type: 'styletab' },
+          ],
+        };
+
+        const xml = plugin.generateDialogXml(config, 'test');
+
+        expect(xml).toContain('<styletab');
+        expect(xml).toContain('path="/mnt/overlay/cq/gui/components/authoring/dialog/style/tab_edit/styletab"');
+        // Should NOT generate an empty tab_2 container
+        expect(xml).not.toContain('jcr:title="Tab 2"');
+        expect(xml).not.toContain('<tab_2');
+      });
+
+      test('include in tabs array should render as include node', () => {
+        const config = {
+          title: 'Test Component',
+          tabs: [
+            {
+              title: 'Properties',
+              fields: [{ type: 'textfield', name: './title', label: 'Title' }],
+            },
+            { type: 'include', name: 'customPanel', path: '/apps/mysite/components/shared/panel' },
+          ],
+        };
+
+        const xml = plugin.generateDialogXml(config, 'test');
+
+        expect(xml).toContain('<customPanel');
+        expect(xml).toContain('path="/apps/mysite/components/shared/panel"');
+        expect(xml).not.toContain('jcr:title="Tab 2"');
+      });
+    });
+
     describe('generateFixedColumns', () => {
       test('should generate fixedcolumns layout with multiple columns', () => {
         const fixedColumns = {
