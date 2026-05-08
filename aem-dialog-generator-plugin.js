@@ -596,6 +596,10 @@ class AemDialogGeneratorPlugin {
       return this.generateButton(field);
     }
 
+    if (type === 'include' || type === 'styletab') {
+      return this.generateInclude(field);
+    }
+
     const resolvedResourceType = resourceType || this.getResourceType(type);
     const fieldName = this.getFieldName(name);
     const nodeName = this.sanitizeNodeName(fieldName);
@@ -2042,6 +2046,34 @@ class AemDialogGeneratorPlugin {
     return xml;
   }
 
+  generateInclude(field) {
+    const STYLETAB_PATH = '/mnt/overlay/cq/gui/components/authoring/dialog/style/tab_edit/styletab';
+    const {
+      type,
+      name,
+      path: includePath = type === 'styletab' ? STYLETAB_PATH : undefined,
+      ...otherProps
+    } = field;
+    const nodeName = name ||
+      (type === 'styletab' ? 'styletab' : this.generateDeterministicNodeName('include', { path: includePath, ...otherProps }));
+    let xml = this.buildNode(
+      this.getIndentLevel(this.I.F),
+      nodeName,
+      {
+        'jcr:primaryType': 'nt:unstructured',
+        'sling:resourceType': 'granite/ui/components/coral/foundation/include',
+        path: includePath,
+      },
+      'none'
+    );
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
+      'type',
+      'path',
+    ]);
+    xml = this.selfClose(xml);
+    return xml;
+  }
+
   generateRTEDefaultPlugins() {
     let xml = this.buildNodes([
       [this.getIndentLevel(this.I.FNI), 'format', { features: 'bold,italic,underline' }, 'self'],
@@ -3117,7 +3149,7 @@ class AemDialogGeneratorPlugin {
               'sling:resourceType': 'wcm/core/components/policies/mapping'
             },
             'self'
-          ).trim();
+          ).trimEnd();
 
           xml = xml.substring(0, lastNewlineIndex + 1) + mappingXml + '\n' + componentsIndent + xml.substring(componentsIndex);
           this.log(`✓ Mapped policy ${policyPath} to template ${templateName}`);
