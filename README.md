@@ -1931,7 +1931,7 @@ Limit the number of characters users can enter using the `maxLength` property:
 
 Provide placeholder text using the `emptyText` property (Coral UI native alternative to `placeholder`):
 
-```json
+```jsonc
 // Search field
 {
   "type": "textfield",
