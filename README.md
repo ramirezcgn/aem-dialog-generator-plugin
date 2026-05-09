@@ -97,8 +97,14 @@ Create `src/main/webpack/components/button/dialog.json`:
           "name": "./style",
           "label": "Button Style",
           "options": [
-            { "value": "primary", "text": "Primary" },
-            { "value": "secondary", "text": "Secondary" }
+            {
+              "value": "primary",
+              "text": "Primary"
+            },
+            {
+              "value": "secondary",
+              "text": "Secondary"
+            }
           ]
         }
       ]
@@ -147,72 +153,6 @@ ui.apps/src/main/content/jcr_root/apps/mysite/components/button/_cq_dialog/.cont
   "description": "Enter title",
   "required": true,
   "defaultValue": "Default text"
-}
-```
-
-## New Properties Quick Guide
-
-### typeHint (Sling/JCR)
-Force the JCR data type saved by Sling. Useful for numbers, booleans, or arrays.
-
-Examples:
-
-```json
-{ "type": "textfield", "name": "./views", "label": "Views", "typeHint": "Long" }
-{ "type": "select", "name": "./tags", "label": "Tags", "multiple": true, "typeHint": "String[]", "options": [{"value":"a","text":"A"}] }
-```
-
-### wrapperClass (field container)
-Add CSS classes to the field container; merged with other Granite classes.
-
-```json
-{ "type": "textfield", "name": "./title", "label": "Title", "className": "input-sm", "wrapperClass": "wrap-a wrap-b" }
-```
-
-### autoFocus (better UX)
-Focus the field when the dialog opens.
-
-```json
-{ "type": "textfield", "name": "./search", "label": "Search", "autoFocus": true }
-```
-
-### trackingElement (granular analytics)
-Complement `trackingFeature` to identify a specific element interaction.
-
-```json
-{ "type": "textfield", "name": "./ctaText", "label": "CTA Text", "trackingFeature": "hero", "trackingElement": "cta" }
-```
-
-### resourceType (custom sling:resourceType)
-Override the `sling:resourceType` for any field. Use this for project-specific or unsupported components. Extra properties like `rootPath` are passed through as XML attributes automatically.
-
-```json
-{
-  "type": "custom",
-  "name": "./custom",
-  "label": "Custom Field",
-  "resourceType": "mysite/components/customfield",
-  "rootPath": "/content/dam"
-}
-```
-
-### extraClientlibs, helpPath, trackingFeature (dialog root)
-
-These properties can be set at the top level of `dialog.json` or `designDialog.json` and are emitted on the `jcr:root` node of the generated XML.
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `extraClientlibs` | String \| Array | Client library category or categories to include in the dialog. An array is serialized as `[cat1,cat2]`. |
-| `helpPath` | String | Path to a help page linked in the dialog header. |
-| `trackingFeature` | String | Analytics tracking identifier for the entire dialog. |
-
-```json
-{
-  "title": "My Component",
-  "extraClientlibs": ["mysite.dialog.custom", "mysite.dialog.shared"],
-  "helpPath": "/content/help/mycomponent",
-  "trackingFeature": "mysite:mycomponent/dialog",
-  "tabs": [...]
 }
 ```
 
@@ -338,9 +278,18 @@ Configure Rich Text Editor plugins in policies:
       "paraformat": {
         "features": "*",
         "formats": [
-          { "description": "Heading 1", "tag": "h1" },
-          { "description": "Heading 2", "tag": "h2" },
-          { "description": "Paragraph", "tag": "p" }
+          {
+            "description": "Heading 1",
+            "tag": "h1"
+          },
+          {
+            "description": "Heading 2",
+            "tag": "h2"
+          },
+          {
+            "description": "Paragraph",
+            "tag": "p"
+          }
         ]
       },
       "links": {
@@ -403,9 +352,18 @@ Configure asset-to-component drag & drop mappings:
           "label": "Default Layout",
           "defaultValue": "centered",
           "options": [
-            { "text": "Centered", "value": "centered" },
-            { "text": "Left Aligned", "value": "left" },
-            { "text": "Right Aligned", "value": "right" }
+            {
+              "text": "Centered",
+              "value": "centered"
+            },
+            {
+              "text": "Left Aligned",
+              "value": "left"
+            },
+            {
+              "text": "Right Aligned",
+              "value": "right"
+            }
           ]
         },
         {
@@ -432,8 +390,14 @@ Configure asset-to-component drag & drop mappings:
       "paraformat": {
         "features": "*",
         "formats": [
-          { "description": "Heading 1", "tag": "h1" },
-          { "description": "Paragraph", "tag": "p" }
+          {
+            "description": "Heading 1",
+            "tag": "h1"
+          },
+          {
+            "description": "Paragraph",
+            "tag": "p"
+          }
         ]
       },
       "links": {
@@ -561,8 +525,14 @@ The plugin will automatically update the template policy files to include the ma
   "name": "./type",
   "label": "Type",
   "options": [
-    { "value": "type1", "text": "Type 1" },
-    { "value": "type2", "text": "Type 2" }
+    {
+      "value": "type1",
+      "text": "Type 1"
+    },
+    {
+      "value": "type2",
+      "text": "Type 2"
+    }
   ]
 }
 ```
@@ -586,7 +556,6 @@ The plugin will automatically update the template policy files to include the ma
 | `selectType` | String | Set to `'editable'` to render an editable combobox instead of a standard dropdown | - |
 
 When `selectType: 'editable'` is set, the generated XML includes `type="editable"`, which renders the field as a combobox — authors can either pick from the list or type a custom value.
-```
 
 ## Advanced Properties
 
@@ -606,7 +575,10 @@ Examples:
   "type": "textfield",
   "name": "./videoUrl",
   "label": "Video URL",
-  "showIf": { "field": "./contentType", "value": "video" },
+  "showIf": {
+    "field": "./contentType",
+    "value": "video"
+  },
   "required": true,
   "requiredMessage": "Required for Video",
   "ariaLabel": "Video URL"
@@ -644,8 +616,14 @@ Examples:
   "renderCondition": {
     "type": "and",
     "conditions": [
-      { "type": "simple", "expression": "${currentUser == 'admin'}" },
-      { "type": "privilege", "privilege": "jcr:read" }
+      {
+        "type": "simple",
+        "expression": "${currentUser == 'admin'}"
+      },
+      {
+        "type": "privilege",
+        "privilege": "jcr:read"
+      }
     ]
   }
 }
@@ -786,15 +764,6 @@ Generates a Coral UI checkbox (`granite/ui/components/coral/foundation/form/chec
 }
 ```
 
-#### hidden
-```json
-{
-  "type": "hidden",
-  "name": "./componentId",
-  "defaultValue": "auto-generated-id"
-}
-```
-
 #### button
 ```json
 {
@@ -866,10 +835,16 @@ Shorthand that injects the AEM Style System tab into the **edit dialog** (`_cq_d
     {
       "title": "Properties",
       "fields": [
-        { "type": "textfield", "name": "./title", "label": "Title" }
+        {
+          "type": "textfield",
+          "name": "./title",
+          "label": "Title"
+        }
       ]
     },
-    { "type": "styletab" }
+    {
+      "type": "styletab"
+    }
   ]
 }
 ```
@@ -909,7 +884,6 @@ Fieldset also supports a `datasource` property. When present, the plugin generat
   }
 }
 ```
-```
 
 #### container - Generic Container for Grouping
 ```json
@@ -945,14 +919,30 @@ Like fieldset, container also accepts a `datasource` property (without requiring
   "columns": [
     {
       "fields": [
-        { "type": "textfield", "name": "./firstName", "label": "First Name" },
-        { "type": "textfield", "name": "./email", "label": "Email" }
+        {
+          "type": "textfield",
+          "name": "./firstName",
+          "label": "First Name"
+          },
+        {
+          "type": "textfield",
+          "name": "./email",
+          "label": "Email"
+        }
       ]
     },
     {
       "fields": [
-        { "type": "textfield", "name": "./lastName", "label": "Last Name" },
-        { "type": "textfield", "name": "./phone", "label": "Phone" }
+        {
+          "type": "textfield",
+          "name": "./lastName",
+          "label": "Last Name"
+        },
+        {
+          "type": "textfield",
+          "name": "./phone",
+          "label": "Phone"
+        }
       ]
     }
   ]
@@ -974,9 +964,21 @@ Organizes fields into side-by-side columns for better space utilization. Perfect
   "type": "well",
   "name": "advancedSettings",
   "fields": [
-    { "type": "textfield", "name": "./cssClass", "label": "CSS Class" },
-    { "type": "numberfield", "name": "./zIndex", "label": "Z-Index" },
-    { "type": "checkbox", "name": "./customBehavior", "label": "Enable Custom Behavior" }
+    {
+      "type": "textfield",
+      "name": "./cssClass",
+      "label": "CSS Class"
+    },
+    {
+      "type": "numberfield",
+      "name": "./zIndex",
+      "label": "Z-Index"
+    },
+    {
+      "type": "checkbox",
+      "name": "./customBehavior",
+      "label": "Enable Custom Behavior"
+    }
   ]
 }
 ```
@@ -1127,8 +1129,15 @@ Provides an autocomplete field with optional datasource integration for dynamic 
   "label": "Layout",
   "vertical": false,
   "options": [
-    { "value": "grid", "text": "Grid" },
-    { "value": "list", "text": "List", "checked": true }
+    {
+      "value": "grid",
+      "text": "Grid"
+    },
+    {
+      "value": "list",
+      "text": "List",
+      "checked": true
+    }
   ]
 }
 ```
@@ -1457,93 +1466,6 @@ Show fields when checkbox is checked:
     .../>
 ```
 
-### Complete Show/Hide Example
-
-```json
-{
-  "title": "Media Component",
-  "tabs": [
-    {
-      "title": "Content",
-      "fields": [
-        {
-          "type": "select",
-          "name": "./mediaType",
-          "label": "Media Type",
-          "cqShowHide": true,
-          "showhideTarget": ".media-fields",
-          "defaultValue": "image",
-          "options": [
-            {
-              "text": "Image",
-              "value": "image"
-            },
-            {
-              "text": "Video",
-              "value": "video"
-            }
-          ]
-        },
-        {
-          "type": "container",
-          "showhideClass": "media-fields",
-          "showhidetargetvalue": "image",
-          "fields": [
-            {
-              "type": "pathfield",
-              "name": "./imageAsset",
-              "label": "Image Asset",
-              "rootPath": "/content/dam"
-            },
-            {
-              "type": "textfield",
-              "name": "./imageAlt",
-              "label": "Alt Text"
-            }
-          ]
-        },
-        {
-          "type": "container",
-          "showhideClass": "media-fields",
-          "showhidetargetvalue": "video",
-          "fields": [
-            {
-              "type": "pathfield",
-              "name": "./videoAsset",
-              "label": "Video Asset",
-              "rootPath": "/content/dam"
-            },
-            {
-              "type": "checkbox",
-              "name": "./videoAutoplay",
-              "label": "Autoplay Video"
-            }
-          ]
-        },
-        {
-          "type": "checkbox",
-          "name": "./addCaption",
-          "label": "Add Caption",
-          "cqShowHide": true,
-          "showhideTarget": ".caption-fields"
-        },
-        {
-          "type": "container",
-          "showhideClass": "caption-fields",
-          "fields": [
-            {
-              "type": "textarea",
-              "name": "./caption",
-              "label": "Caption Text"
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-```
-
 #### multifield - Repeatable Fields
 
 **Simple Multifield** (single field repeated):
@@ -1656,15 +1578,31 @@ Use `layout: 'accordion'` for collapsible sections instead of tabs:
       "title": "Basic Settings",
       "active": true,
       "fields": [
-        { "type": "textfield", "name": "./title", "label": "Title" },
-        { "type": "textarea", "name": "./description", "label": "Description" }
+        {
+          "type": "textfield",
+          "name": "./title",
+          "label": "Title"
+        },
+        {
+          "type": "textarea",
+          "name": "./description",
+          "label": "Description"
+        }
       ]
     },
     {
       "title": "Advanced Options",
       "fields": [
-        { "type": "textfield", "name": "./cssClass", "label": "CSS Class" },
-        { "type": "numberfield", "name": "./order", "label": "Display Order" }
+        {
+          "type": "textfield",
+          "name": "./cssClass",
+          "label": "CSS Class"
+        },
+        {
+          "type": "numberfield",
+          "name": "./order",
+          "label": "Display Order"
+        }
       ]
     }
   ]
@@ -1771,9 +1709,18 @@ Allow selecting multiple options in dropdowns:
   "label": "Categories",
   "multiple": true,
   "options": [
-    { "text": "News", "value": "news" },
-    { "text": "Events", "value": "events" },
-    { "text": "Blog", "value": "blog" }
+    {
+      "text": "News",
+      "value": "news"
+    },
+    {
+      "text": "Events",
+      "value": "events"
+    },
+    {
+      "text": "Blog",
+      "value": "blog"
+    }
   ]
 }
 ```
@@ -1934,40 +1881,15 @@ Set initial values for fields using the `defaultValue` property:
   "label": "Theme",
   "defaultValue": "dark",
   "options": [
-    { "value": "light", "text": "Light" },
-    { "value": "dark", "text": "Dark" }
+    {
+      "value": "light",
+      "text": "Light"
+    },
+    {
+      "value": "dark",
+      "text": "Dark"
+    }
   ]
-}
-```
-
-### Field Descriptions
-
-Add helpful descriptive text below field labels using the `description` property:
-
-```json
-{
-  "type": "textfield",
-  "name": "./email",
-  "label": "Email Address",
-  "description": "This email will be used for notification purposes only"
-}
-
-{
-  "type": "pathfield",
-  "name": "./backgroundImage",
-  "label": "Background Image",
-  "description": "Recommended size: 1920x1080px. Supports JPG, PNG, and WebP formats.",
-  "rootPath": "/content/dam"
-}
-
-{
-  "type": "numberfield",
-  "name": "./animationDuration",
-  "label": "Animation Duration",
-  "description": "Duration in milliseconds. Lower values = faster animations.",
-  "min": 100,
-  "max": 5000,
-  "defaultValue": 1000
 }
 ```
 
@@ -2135,8 +2057,14 @@ Conditionally hide fields in the UI while preserving their functionality using t
   "name": "./mode",
   "label": "Mode",
   "options": [
-    { "value": "simple", "text": "Simple" },
-    { "value": "advanced", "text": "Advanced" }
+    {
+      "value": "simple",
+      "text": "Simple"
+    },
+    {
+      "value": "advanced",
+      "text": "Advanced"
+    }
   ]
 },
 {
@@ -2147,14 +2075,6 @@ Conditionally hide fields in the UI while preserving their functionality using t
   "description": "Revealed when Advanced mode is selected"
 }
 ```
-
-**Difference from `type: "hidden"`:**
-| Feature | `renderHidden: true` | `type: "hidden"` |
-|---------|---------------------|------------------|
-| In DOM | ✅ Yes | ❌ No |
-| Can be revealed | ✅ Yes | ❌ No |
-| Label shown | ❌ No (while hidden) | ❌ Never |
-| Use case | Conditional UI | Always hidden data |
 
 ### Collapsible Fieldsets and Containers
 
@@ -2168,9 +2088,21 @@ Make fieldsets and containers collapsible to organize long dialogs using the `co
   "label": "Advanced Settings",
   "collapsible": true,
   "fields": [
-    { "type": "textfield", "name": "./customClass", "label": "Custom CSS Class" },
-    { "type": "numberfield", "name": "./zIndex", "label": "Z-Index" },
-    { "type": "checkbox", "name": "./lazyLoad", "label": "Lazy Load" }
+    {
+      "type": "textfield",
+      "name": "./customClass",
+      "label": "Custom CSS Class"
+    },
+    {
+      "type": "numberfield",
+      "name": "./zIndex",
+      "label": "Z-Index"
+    },
+    {
+      "type": "checkbox",
+      "name": "./lazyLoad",
+      "label": "Lazy Load"
+    }
   ]
 }
 
@@ -2180,8 +2112,18 @@ Make fieldsets and containers collapsible to organize long dialogs using the `co
   "name": "seoOptions",
   "collapsible": true,
   "fields": [
-    { "type": "textfield", "name": "./metaTitle", "label": "Meta Title", "maxLength": 60 },
-    { "type": "textarea", "name": "./metaDescription", "label": "Meta Description", "maxLength": 160 }
+    {
+      "type": "textfield",
+      "name": "./metaTitle",
+      "label": "Meta Title",
+      "maxLength": 60
+    },
+    {
+      "type": "textarea",
+      "name": "./metaDescription",
+      "label": "Meta Description",
+      "maxLength": 160
+    }
   ]
 }
 
@@ -2192,8 +2134,16 @@ Make fieldsets and containers collapsible to organize long dialogs using the `co
   "label": "Styling Options",
   "collapsible": true,
   "fields": [
-    { "type": "colorfield", "name": "./backgroundColor", "label": "Background Color" },
-    { "type": "colorfield", "name": "./textColor", "label": "Text Color" }
+    {
+      "type": "colorfield",
+      "name": "./backgroundColor",
+      "label": "Background Color"
+    },
+    {
+      "type": "colorfield",
+      "name": "./textColor",
+      "label": "Text Color"
+    }
   ]
 },
 {
@@ -2202,8 +2152,17 @@ Make fieldsets and containers collapsible to organize long dialogs using the `co
   "label": "Animation Settings",
   "collapsible": true,
   "fields": [
-    { "type": "select", "name": "./effect", "label": "Effect", "options": [...] },
-    { "type": "numberfield", "name": "./duration", "label": "Duration (ms)" }
+    {
+      "type": "select",
+      "name": "./effect",
+      "label": "Effect",
+      "options": [...]
+    },
+    {
+      "type": "numberfield",
+      "name": "./duration",
+      "label": "Duration (ms)"
+    }
   ]
 }
 ```
@@ -2308,8 +2267,17 @@ Add confirmation messages when deleting multifield items using the `deleteHint` 
   "deleteHint": "Are you sure you want to delete this slide?",
   "composite": true,
   "fields": [
-    { "type": "textfield", "name": "./title", "label": "Title" },
-    { "type": "pathfield", "name": "./image", "label": "Image", "rootPath": "/content/dam" }
+    {
+      "type": "textfield",
+      "name": "./title",
+      "label": "Title"
+    },
+    {
+      "type": "pathfield",
+      "name": "./image",
+      "label": "Image",
+      "rootPath": "/content/dam"
+    }
   ]
 }
 
@@ -2321,8 +2289,17 @@ Add confirmation messages when deleting multifield items using the `deleteHint` 
   "deleteHint": "Removing this team member cannot be undone. Continue?",
   "maxItems": 10,
   "fields": [
-    { "type": "textfield", "name": "./name", "label": "Name", "required": true },
-    { "type": "textfield", "name": "./role", "label": "Role" }
+    {
+      "type": "textfield",
+      "name": "./name",
+      "label": "Name",
+      "required": true
+    },
+    {
+      "type": "textfield",
+      "name": "./role",
+      "label": "Role"
+    }
   ]
 }
 
@@ -2334,8 +2311,17 @@ Add confirmation messages when deleting multifield items using the `deleteHint` 
   "deleteHint": "⚠️ Deleting this configuration may break integrations. Are you absolutely sure?",
   "minItems": 1,
   "fields": [
-    { "type": "textfield", "name": "./endpoint", "label": "Endpoint URL", "required": true },
-    { "type": "textfield", "name": "./apiKey", "label": "API Key" }
+    {
+      "type": "textfield",
+      "name": "./endpoint",
+      "label": "Endpoint URL",
+      "required": true
+    },
+    {
+      "type": "textfield",
+      "name": "./apiKey",
+      "label": "API Key"
+    }
   ]
 }
 ```
@@ -2353,9 +2339,23 @@ Enable drag & drop reordering of multifield items using the `ordered` property:
   "ordered": true,
   "composite": true,
   "fields": [
-    { "type": "textfield", "name": "./title", "label": "Title" },
-    { "type": "pathfield", "name": "./image", "label": "Image", "rootPath": "/content/dam" },
-    { "type": "textarea", "name": "./description", "label": "Description", "rows": 3 }
+    {
+      "type": "textfield",
+      "name": "./title",
+      "label": "Title"
+    },
+    {
+      "type": "pathfield",
+      "name": "./image",
+      "label": "Image",
+      "rootPath": "/content/dam"
+    },
+    {
+      "type": "textarea",
+      "name": "./description",
+      "label": "Description",
+      "rows": 3
+    }
   ]
 }
 
@@ -2367,8 +2367,18 @@ Enable drag & drop reordering of multifield items using the `ordered` property:
   "ordered": true,
   "deleteHint": "Remove this navigation item?",
   "fields": [
-    { "type": "textfield", "name": "./label", "label": "Label", "required": true },
-    { "type": "pathfield", "name": "./link", "label": "Link", "rootPath": "/content" }
+    {
+      "type": "textfield",
+      "name": "./label",
+      "label": "Label",
+      "required": true
+    },
+    {
+      "type": "pathfield",
+      "name": "./link",
+      "label": "Link",
+      "rootPath": "/content"
+    }
   ]
 }
 
@@ -2381,11 +2391,27 @@ Enable drag & drop reordering of multifield items using the `ordered` property:
   "minItems": 1,
   "maxItems": 10,
   "fields": [
-    { "type": "textfield", "name": "./task", "label": "Task", "required": true },
-    { "type": "select", "name": "./status", "label": "Status", "options": [
-      { "value": "pending", "text": "Pending" },
-      { "value": "complete", "text": "Complete" }
-    ]}
+    {
+      "type": "textfield",
+      "name": "./task",
+      "label": "Task",
+      "required": true
+    },
+    {
+      "type": "select",
+      "name": "./status",
+      "label": "Status",
+      "options": [
+        {
+          "value": "pending",
+          "text": "Pending"
+        },
+        {
+          "value": "complete",
+          "text": "Complete"
+        }
+      ]
+    }
   ]
 }
 
@@ -2399,9 +2425,23 @@ Enable drag & drop reordering of multifield items using the `ordered` property:
   "description": "Drag items to reorder the process flow",
   "composite": true,
   "fields": [
-    { "type": "numberfield", "name": "./stepNumber", "label": "Step #", "disabled": true },
-    { "type": "textfield", "name": "./stepName", "label": "Step Name", "required": true },
-    { "type": "textarea", "name": "./instructions", "label": "Instructions" }
+    {
+      "type": "numberfield",
+      "name": "./stepNumber",
+      "label": "Step #",
+      "disabled": true
+    },
+    {
+      "type": "textfield",
+      "name": "./stepName",
+      "label": "Step Name",
+      "required": true
+    },
+    {
+      "type": "textarea",
+      "name": "./instructions",
+      "label": "Instructions"
+    }
   ]
 }
 ```
@@ -2546,410 +2586,6 @@ For components with few fields:
       "type": "textfield",
       "name": "./title",
       "label": "Title"
-    }
-  ]
-}
-```
-
-## Complete Examples
-
-### Hero Component
-
-```json
-{
-  "title": "Hero Component",
-  "tabs": [
-    {
-      "title": "Content",
-      "fields": [
-        {
-          "type": "textfield",
-          "name": "./title",
-          "label": "Title",
-          "required": true
-        },
-        {
-          "type": "rte",
-          "name": "./description",
-          "label": "Description",
-          "features": ["bold", "italic", "links"]
-        },
-        {
-          "type": "fieldset",
-          "label": "Call to Action",
-          "fields": [
-            {
-              "type": "textfield",
-              "name": "./ctaText",
-              "label": "Button Text"
-            },
-            {
-              "type": "pathfield",
-              "name": "./ctaLink",
-              "label": "Button Link",
-              "rootPath": "/content"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "title": "Media",
-      "fields": [
-        {
-          "type": "pathfield",
-          "name": "./backgroundImage",
-          "label": "Background Image",
-          "rootPath": "/content/dam",
-          "required": true
-        }
-      ]
-    },
-    {
-      "title": "Settings",
-      "fields": [
-        {
-          "type": "select",
-          "name": "./alignment",
-          "label": "Text Alignment",
-          "defaultValue": "center",
-          "options": [
-            { "value": "left", "text": "Left" },
-            { "value": "center", "text": "Center" },
-            { "value": "right", "text": "Right" }
-          ]
-        },
-        {
-          "type": "checkbox",
-          "name": "./overlay",
-          "label": "Dark Overlay",
-          "text": "Add dark overlay"
-        }
-      ]
-    }
-  ]
-}
-```
-
-### Carousel Component
-
-```json
-{
-  "title": "Carousel Component",
-  "tabs": [
-    {
-      "title": "Slides",
-      "fields": [
-        {
-          "type": "multifield",
-          "name": "./slides",
-          "label": "Carousel Slides",
-          "composite": true,
-          "minItems": 2,
-          "maxItems": 10,
-          "deleteHint": "Are you sure you want to remove this slide?",
-          "fields": [
-            {
-              "type": "textfield",
-              "name": "./title",
-              "label": "Slide Title",
-              "required": true,
-              "maxlength": 100
-            },
-            {
-              "type": "textarea",
-              "name": "./description",
-              "label": "Description",
-              "rows": 3
-            },
-            {
-              "type": "pathfield",
-              "name": "./image",
-              "label": "Image",
-              "rootPath": "/content/dam"
-            },
-            {
-              "type": "textfield",
-              "name": "./ctaText",
-              "label": "CTA Text"
-            },
-            {
-              "type": "pathfield",
-              "name": "./ctaLink",
-              "label": "CTA Link",
-              "rootPath": "/content"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "title": "Settings",
-      "fields": [
-        {
-          "type": "checkbox",
-          "name": "./autoplay",
-          "label": "Autoplay",
-          "text": "Enable autoplay"
-        },
-        {
-          "type": "numberfield",
-          "name": "./interval",
-          "label": "Interval (ms)",
-          "defaultValue": 5000,
-          "min": 1000,
-          "max": 10000
-        }
-      ]
-    }
-  ]
-}
-```
-
-### Testimonials Component
-
-```json
-{
-  "title": "Testimonials Component",
-  "tabs": [
-    {
-      "title": "Testimonials",
-      "fields": [
-        {
-          "type": "multifield",
-          "name": "./testimonials",
-          "label": "Customer Testimonials",
-          "composite": true,
-          "fields": [
-            {
-              "type": "textarea",
-              "name": "./quote",
-              "label": "Quote",
-              "required": true,
-              "rows": 4
-            },
-            {
-              "type": "textfield",
-              "name": "./author",
-              "label": "Author Name",
-              "required": true
-            },
-            {
-              "type": "textfield",
-              "name": "./position",
-              "label": "Position"
-            },
-            {
-              "type": "pathfield",
-              "name": "./avatar",
-              "label": "Photo",
-              "rootPath": "/content/dam"
-            },
-            {
-              "type": "numberfield",
-              "name": "./rating",
-              "label": "Rating",
-              "min": 1,
-              "max": 5,
-              "defaultValue": 5
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-```
-
-### Product Card Component (Using image, radiogroup, autocomplete)
-
-Example showcasing `image`, `radiogroup`, and `autocomplete` field types:
-
-```json
-{
-  "title": "Product Card Component",
-  "tabs": [
-    {
-      "title": "Product Info",
-      "fields": [
-        {
-          "type": "textfield",
-          "name": "./productName",
-          "label": "Product Name",
-          "required": true
-        },
-        {
-          "type": "image",
-          "name": "./productImage",
-          "label": "Product Image",
-          "required": true,
-          "uploadUrl": "/content/dam/products",
-          "mimeTypes": ["image/jpeg", "image/png", "image/webp"]
-        },
-        {
-          "type": "text",
-          "text": "Use high-quality images with minimum 800x800 pixels for best results.",
-          "variant": "info"
-        },
-        {
-          "type": "autocomplete",
-          "name": "./productCategory",
-          "label": "Category",
-          "required": true,
-          "datasource": "/apps/mysite/datasources/categories",
-          "forceSelection": true
-        },
-        {
-          "type": "autocomplete",
-          "name": "./relatedProducts",
-          "label": "Related Products",
-          "multiple": true,
-          "datasource": "/apps/mysite/datasources/products"
-        },
-        {
-          "type": "textarea",
-          "name": "./description",
-          "label": "Description",
-          "rows": 5
-        }
-      ]
-    },
-    {
-      "title": "Display",
-      "fields": [
-        {
-          "type": "heading",
-          "text": "Card Layout",
-          "level": 3
-        },
-        {
-          "type": "radiogroup",
-          "name": "./cardStyle",
-          "label": "Card Style",
-          "options": [
-            { "value": "standard", "text": "Standard", "checked": true },
-            { "value": "compact", "text": "Compact" },
-            { "value": "featured", "text": "Featured" }
-          ]
-        },
-        {
-          "type": "radiogroup",
-          "name": "./imagePosition",
-          "label": "Image Position",
-          "vertical": true,
-          "options": [
-            { "value": "top", "text": "Top", "checked": true },
-            { "value": "left", "text": "Left" },
-            { "value": "right", "text": "Right" }
-          ]
-        },
-        {
-          "type": "checkbox",
-          "name": "./showPrice",
-          "label": "Show Price",
-          "text": "Display product price"
-        },
-        {
-          "type": "checkbox",
-          "name": "./showRating",
-          "label": "Show Rating",
-          "text": "Display star rating"
-        }
-      ]
-    }
-  ]
-}
-```
-
-### Blog Post Component (Using New Field Types)
-
-Example showcasing `heading`, `text/alert`, and `tags` field types:
-
-```json
-{
-  "title": "Blog Post Component",
-  "tabs": [
-    {
-      "title": "Content",
-      "fields": [
-        {
-          "type": "heading",
-          "text": "Article Content",
-          "level": 3
-        },
-        {
-          "type": "textfield",
-          "name": "./title",
-          "label": "Post Title",
-          "required": true
-        },
-        {
-          "type": "rte",
-          "name": "./content",
-          "label": "Content",
-          "features": ["*"]
-        },
-        {
-          "type": "heading",
-          "text": "Featured Image",
-          "level": 3
-        },
-        {
-          "type": "pathfield",
-          "name": "./featuredImage",
-          "label": "Image",
-          "rootPath": "/content/dam"
-        },
-        {
-          "type": "text",
-          "text": "The featured image will be used in article previews and social media shares.",
-          "variant": "info"
-        }
-      ]
-    },
-    {
-      "title": "Metadata",
-      "fields": [
-        {
-          "type": "heading",
-          "text": "Article Classification",
-          "level": 3
-        },
-        {
-          "type": "tags",
-          "name": "./cq:tags",
-          "label": "Article Tags",
-          "required": true,
-          "rootPath": "/content/cq:tags/blog"
-        },
-        {
-          "type": "text",
-          "text": "Tags help organize content and improve SEO. Select at least one tag.",
-          "variant": "info"
-        },
-        {
-          "type": "heading",
-          "text": "Publishing",
-          "level": 3
-        },
-        {
-          "type": "datepicker",
-          "name": "./publishDate",
-          "label": "Publish Date",
-          "required": true
-        },
-        {
-          "type": "text",
-          "text": "Warning: Published articles will be visible to all users immediately.",
-          "variant": "warning"
-        },
-        {
-          "type": "textfield",
-          "name": "./author",
-          "label": "Author",
-          "required": true
-        }
-      ]
     }
   ]
 }
