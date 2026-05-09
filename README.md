@@ -1674,7 +1674,7 @@ Set numeric range constraints on number fields:
 
 Control field interactivity:
 
-```json
+```jsonc
 // Disabled field - grayed out, not submitted
 {
   "type": "textfield",
@@ -1729,7 +1729,7 @@ Allow selecting multiple options in dropdowns:
 
 Add help icon with tooltip next to field labels:
 
-```json
+```jsonc
 // Simple text tooltip
 {
   "type": "textfield",
@@ -1755,7 +1755,7 @@ Add help icon with tooltip next to field labels:
 
 Add custom CSS classes to any field using the `className` property:
 
-```json
+```jsonc
 // Single class
 {
   "type": "textfield",
@@ -1788,7 +1788,7 @@ Add custom CSS classes to any field using the `className` property:
 
 Control the width of individual fields using the `width` property:
 
-```json
+```jsonc
 // Fixed pixel width
 {
   "type": "textfield",
@@ -1819,7 +1819,7 @@ Control the width of individual fields using the `width` property:
 
 Control vertical spacing between fields using the `margin` property:
 
-```json
+```jsonc
 // Add margin above field
 {
   "type": "heading",
@@ -1848,7 +1848,7 @@ Control vertical spacing between fields using the `margin` property:
 
 Set initial values for fields using the `defaultValue` property:
 
-```json
+```jsonc
 // Text field with default
 {
   "type": "textfield",
@@ -1897,7 +1897,7 @@ Set initial values for fields using the `defaultValue` property:
 
 Limit the number of characters users can enter using the `maxLength` property:
 
-```json
+```jsonc
 // Short text field
 {
   "type": "textfield",
@@ -1961,7 +1961,7 @@ Provide placeholder text using the `emptyText` property (Coral UI native alterna
 
 Assign custom IDs to fields for JavaScript integration and specific styling using the `graniteId` property:
 
-```json
+```jsonc
 // Custom field ID for JavaScript hooks
 {
   "type": "select",
@@ -2001,7 +2001,7 @@ Assign custom IDs to fields for JavaScript integration and specific styling usin
 
 Add analytics tracking identifiers to fields using the `trackingFeature` property:
 
-```json
+```jsonc
 // Track field usage in Adobe Analytics
 {
   "type": "select",
@@ -2033,7 +2033,7 @@ Add analytics tracking identifiers to fields using the `trackingFeature` propert
 
 Conditionally hide fields in the UI while preserving their functionality using the `renderHidden` property:
 
-```json
+```jsonc
 // Hidden until condition met
 {
   "type": "textfield",
@@ -2080,7 +2080,7 @@ Conditionally hide fields in the UI while preserving their functionality using t
 
 Make fieldsets and containers collapsible to organize long dialogs using the `collapsible` property:
 
-```json
+```jsonc
 // Collapsible fieldset
 {
   "type": "fieldset",
@@ -2171,7 +2171,7 @@ Make fieldsets and containers collapsible to organize long dialogs using the `co
 
 Filter selectable items in path-based pickers using the `filter` property:
 
-```json
+```jsonc
 // Filter by folder type in pathfield
 {
   "type": "pathfield",
@@ -2222,7 +2222,7 @@ Filter selectable items in path-based pickers using the `filter` property:
 
 Force revalidation of DAM assets to avoid cache issues using the `forceIgnoreFreshness` property:
 
-```json
+```jsonc
 // Force asset revalidation
 {
   "type": "pathfield",
@@ -2258,7 +2258,7 @@ Force revalidation of DAM assets to avoid cache issues using the `forceIgnoreFre
 
 Add confirmation messages when deleting multifield items using the `deleteHint` property:
 
-```json
+```jsonc
 // Simple confirmation
 {
   "type": "multifield",
@@ -2330,7 +2330,7 @@ Add confirmation messages when deleting multifield items using the `deleteHint` 
 
 Enable drag & drop reordering of multifield items using the `ordered` property:
 
-```json
+```jsonc
 // Sortable carousel slides
 {
   "type": "multifield",
@@ -2510,7 +2510,7 @@ The `validation` property supports:
 - **String** — passed directly as the `validation` attribute (named validator key)
 
 **Common patterns:**
-```json
+```jsonc
 // Email
 "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
 
