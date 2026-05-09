@@ -309,6 +309,36 @@ describe('AemDialogGeneratorPlugin', () => {
     });
 
     describe('generateFieldsetOrContainer', () => {
+      test('should generate fieldset with datasource only (no static items)', () => {
+        const fieldset = {
+          type: 'fieldset',
+          name: 'options',
+          datasource: { resourceType: 'core/wcm/components/embed/v2/datasources/embeddableoptions' },
+        };
+
+        const xml = plugin.generateFieldsetOrContainer(fieldset, 'fieldset');
+
+        expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/form/fieldset"');
+        expect(xml).toContain('sling:resourceType="core/wcm/components/embed/v2/datasources/embeddableoptions"');
+        // Should NOT generate an empty <items> block
+        expect(xml).not.toContain('<items');
+      });
+
+      test('should generate container with datasource and static items together', () => {
+        const container = {
+          type: 'container',
+          name: 'wrapper',
+          datasource: { resourceType: 'my/datasource' },
+          fields: [{ type: 'textfield', name: './title', label: 'Title' }],
+        };
+
+        const xml = plugin.generateFieldsetOrContainer(container, 'container');
+
+        expect(xml).toContain('sling:resourceType="my/datasource"');
+        expect(xml).toContain('<items');
+        expect(xml).toContain('fieldLabel="Title"');
+      });
+
       test('should generate fieldset with nested fields and label', () => {
         const fieldset = {
           type: 'fieldset',
@@ -449,6 +479,68 @@ describe('AemDialogGeneratorPlugin', () => {
       });
     });
 
+    describe('generateAlert', () => {
+      test('should generate alert with correct resource type', () => {
+        const field = { type: 'alert', name: 'myAlert', text: 'Important notice' };
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/alert"');
+        expect(xml).toContain('text="Important notice"');
+      });
+
+      test('should use default variant info and size S', () => {
+        const field = { type: 'alert', name: 'notice', text: 'Note' };
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('variant="info"');
+        expect(xml).toContain('size="S"');
+      });
+
+      test('should support custom variant and size', () => {
+        const field = { type: 'alert', name: 'warn', text: 'Watch out', variant: 'warning', size: 'L' };
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('variant="warning"');
+        expect(xml).toContain('size="L"');
+      });
+    });
+
+    describe('generateCheckbox attributes', () => {
+      test('should use text= for label (not fieldLabel)', () => {
+        const field = { type: 'checkbox', name: './enabled', label: 'Enable Feature' };
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('text="Enable Feature"');
+        expect(xml).not.toContain('fieldLabel="Enable Feature"');
+      });
+
+      test('should emit uncheckedValue attribute', () => {
+        const field = { type: 'checkbox', name: './opt', label: 'Opt', uncheckedValue: 'false' };
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('uncheckedValue="false"');
+      });
+
+      test('should emit checked={Boolean}true when checked is true', () => {
+        const field = { type: 'checkbox', name: './opt', label: 'Opt', checked: true };
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('checked="{Boolean}true"');
+      });
+
+      test('should emit checked={Boolean}false when checked is false', () => {
+        const field = { type: 'checkbox', name: './opt', label: 'Opt', checked: false };
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('checked="{Boolean}false"');
+      });
+
+      test('should pass EL expression for checked as-is', () => {
+        const field = { type: 'checkbox', name: './autoplay', label: 'Autoplay', checked: '${not empty cqDesign.autoplay}' };
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('checked="${not empty cqDesign.autoplay}"');
+      });
+
+      test('should default value to {Boolean}true when no defaultValue given', () => {
+        const field = { type: 'checkbox', name: './opt', label: 'Opt' };
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('value="{Boolean}true"');
+      });
+    });
+
     describe('Field Validation', () => {
       test('should generate field with regex validation', () => {
         const field = {
@@ -484,6 +576,20 @@ describe('AemDialogGeneratorPlugin', () => {
         const xml = plugin.generateField(field);
 
         expect(xml).toContain('validation="^\\d{10}$"');
+        expect(xml).not.toContain('validationMessage');
+      });
+
+      test('should accept validation as a plain string validator key', () => {
+        const field = {
+          type: 'textfield',
+          name: './id',
+          label: 'ID',
+          validation: 'html-unique-id-validator',
+        };
+
+        const xml = plugin.generateField(field);
+
+        expect(xml).toContain('validation="html-unique-id-validator"');
         expect(xml).not.toContain('validationMessage');
       });
     });
@@ -644,6 +750,90 @@ describe('AemDialogGeneratorPlugin', () => {
 
         expect(xml).not.toContain('disabled=');
         expect(xml).not.toContain('readOnly=');
+      });
+    });
+
+    describe('Select Type (editable)', () => {
+      test('should emit type="editable" on select when selectType is editable', () => {
+        const field = {
+          type: 'select',
+          name: './orderBy',
+          label: 'Order By',
+          selectType: 'editable',
+          options: [{ value: 'asc', text: 'Ascending' }],
+        };
+
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('type="editable"');
+        expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/form/select"');
+      });
+
+      test('should NOT emit type attribute on select when selectType is not set', () => {
+        const field = {
+          type: 'select',
+          name: './style',
+          label: 'Style',
+          options: [{ value: 'a', text: 'A' }],
+        };
+
+        const xml = plugin.generateField(field);
+        // The select node itself should not have a type attribute
+        const selectNodeLine = xml.split('\n').find((l) => l.includes('sling:resourceType="granite/ui/components/coral/foundation/form/select"'));
+        expect(selectNodeLine).toBeDefined();
+        // type= should not appear near the select node
+        const blockBeforeItems = xml.split('<items')[0];
+        expect(blockBeforeItems).not.toContain('type="');
+      });
+    });
+
+    describe('Select Option Attributes', () => {
+      test('should mark an option as selected by default', () => {
+        const field = {
+          type: 'select',
+          name: './size',
+          label: 'Size',
+          options: [
+            { value: 'S', text: 'Small' },
+            { value: 'M', text: 'Medium', selected: true },
+            { value: 'L', text: 'Large' },
+          ],
+        };
+
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('selected="{Boolean}true"');
+        // Only one option is selected
+        const matches = xml.match(/selected="\{Boolean\}true"/g);
+        expect(matches).toHaveLength(1);
+      });
+
+      test('should add granite:hide on individual options', () => {
+        const field = {
+          type: 'select',
+          name: './mode',
+          label: 'Mode',
+          options: [
+            { value: 'auto', text: 'Auto' },
+            { value: 'manual', text: 'Manual', hide: '${!cqDesign.manualEnabled}' },
+          ],
+        };
+
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('granite:hide="${!cqDesign.manualEnabled}"');
+      });
+
+      test('should add granite:hide={Boolean}true on option when hide is boolean true', () => {
+        const field = {
+          type: 'select',
+          name: './mode',
+          label: 'Mode',
+          options: [
+            { value: 'auto', text: 'Auto' },
+            { value: 'deprecated', text: 'Deprecated', hide: true },
+          ],
+        };
+
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('granite:hide="{Boolean}true"');
       });
     });
 
@@ -1369,7 +1559,7 @@ describe('AemDialogGeneratorPlugin', () => {
     });
 
     describe('Granite Data', () => {
-      test('should add granite:data-* attributes', () => {
+      test('should add granite:data-* attributes (inline, via data prop)', () => {
         const field = {
           type: 'textfield',
           name: './meta',
@@ -1381,6 +1571,36 @@ describe('AemDialogGeneratorPlugin', () => {
         expect(xml).toContain('granite:data-test="x"');
         expect(xml).toContain('granite:data-count="3"');
         expect(xml).toContain('granite:data-flag="true"');
+      });
+
+      test('should generate <granite:data> child node via graniteData prop', () => {
+        const field = {
+          type: 'textfield',
+          name: './hook',
+          label: 'Hook',
+          graniteData: { 'cmp-carousel-v1-dialog-hook': 'autoplay' },
+        };
+
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('<granite:data');
+        expect(xml).toContain('jcr:primaryType="nt:unstructured"');
+        expect(xml).toContain('cmp-carousel-v1-dialog-hook="autoplay"');
+        // must be a child node, not an inline attr on the field
+        expect(xml).not.toContain('granite:data-cmp-carousel-v1-dialog-hook');
+      });
+
+      test('should support graniteData on select fields (with options)', () => {
+        const field = {
+          type: 'select',
+          name: './type',
+          label: 'Type',
+          options: [{ value: 'a', text: 'A' }],
+          graniteData: { 'cmp-hook': 'type' },
+        };
+
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('<granite:data');
+        expect(xml).toContain('cmp-hook="type"');
       });
     });
 
@@ -1417,6 +1637,59 @@ describe('AemDialogGeneratorPlugin', () => {
         expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/renderconditions/and"');
         expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/renderconditions/simple"');
         expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/renderconditions/privilege"');
+      });
+
+      test('should add feature rendercondition', () => {
+        const field = {
+          type: 'textfield',
+          name: './featureField',
+          label: 'Feature Field',
+          renderCondition: { type: 'feature', feature: 'com.adobe.cq.wcm.launches.impl.LaunchesFeatureFlag' },
+        };
+
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('sling:resourceType="granite/ui/components/coral/foundation/renderconditions/feature"');
+        expect(xml).toContain('feature="com.adobe.cq.wcm.launches.impl.LaunchesFeatureFlag"');
+      });
+
+      test('should support legacy:simple rendercondition type (old Granite path)', () => {
+        const field = {
+          type: 'textfield',
+          name: './legacyField',
+          label: 'Legacy',
+          renderCondition: { type: 'legacy:simple', expression: '${true}' },
+        };
+
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('sling:resourceType="granite/ui/components/foundation/renderconditions/simple"');
+        expect(xml).not.toContain('coral/foundation/renderconditions/simple');
+      });
+
+      test('should support explicit resourceType on rendercondition', () => {
+        const field = {
+          type: 'textfield',
+          name: './customRC',
+          label: 'Custom RC',
+          renderCondition: {
+            type: 'simple',
+            resourceType: 'my/custom/rendercondition',
+          },
+        };
+
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('sling:resourceType="my/custom/rendercondition"');
+      });
+
+      test('should support rendercondition type as a full resource type path', () => {
+        const field = {
+          type: 'textfield',
+          name: './pathRC',
+          label: 'Path RC',
+          renderCondition: { type: 'some/full/resource/type' },
+        };
+
+        const xml = plugin.generateField(field);
+        expect(xml).toContain('sling:resourceType="some/full/resource/type"');
       });
     });
 
@@ -3206,6 +3479,50 @@ describe('AemDialogGeneratorPlugin', () => {
         expect(xml).toContain('jcr:title="Content"');
         expect(xml).toContain('jcr:title="Styling"');
       });
+
+      test('should include extraClientlibs on the jcr:root node', () => {
+        const config = {
+          title: 'Test',
+          extraClientlibs: ['core.wcm.components.carousel.v1.editor'],
+          fields: [{ type: 'textfield', name: './t', label: 'T' }],
+        };
+
+        const xml = plugin.generateDialogXml(config, 'test');
+        expect(xml).toContain('extraClientlibs="[core.wcm.components.carousel.v1.editor]"');
+      });
+
+      test('should include helpPath on the jcr:root node', () => {
+        const config = {
+          title: 'Test',
+          helpPath: 'wcm/core/content/help/authoring/default-page-authoring-help.html',
+          fields: [{ type: 'textfield', name: './t', label: 'T' }],
+        };
+
+        const xml = plugin.generateDialogXml(config, 'test');
+        expect(xml).toContain('helpPath="wcm/core/content/help/authoring/default-page-authoring-help.html"');
+      });
+
+      test('should include trackingFeature on the jcr:root node', () => {
+        const config = {
+          title: 'Test',
+          trackingFeature: 'core-components-v1',
+          fields: [{ type: 'textfield', name: './t', label: 'T' }],
+        };
+
+        const xml = plugin.generateDialogXml(config, 'test');
+        expect(xml).toContain('trackingFeature="core-components-v1"');
+      });
+
+      test('should include extraClientlibs as array on design dialog', () => {
+        const config = {
+          title: 'Test Design',
+          extraClientlibs: ['core.wcm.components.tabs.v1.editor', 'core.wcm.components.shared'],
+          fields: [{ type: 'textfield', name: './t', label: 'T' }],
+        };
+
+        const xml = plugin.generateDesignDialogXml(config, 'test');
+        expect(xml).toContain('extraClientlibs="[core.wcm.components.tabs.v1.editor,core.wcm.components.shared]"');
+      });
     });
 
     describe('generateTab', () => {
@@ -3905,7 +4222,7 @@ describe('Design Dialog Generation', () => {
         'sling:resourceType="cq/gui/components/authoring/dialog"'
       );
       expect(xml).toContain('name="./enableVariants"');
-      expect(xml).toContain('fieldLabel="Enable Variants"');
+      expect(xml).toContain('text="Enable Variants"');
     });
 
     test('should generate design dialog with tabs', () => {

@@ -8,38 +8,37 @@ A Webpack plugin that automatically generates AEM component `_cq_dialog.xml` and
 
 ## Features
 
-✨ **29 Field Types Supported** - textfield, textarea, select, pathfield, pagefield, checkbox, multifield, RTE, fieldset, container, heading, text/alert, tags, image, autocomplete, radiogroup, contentfragmentpicker, experiencefragmentpicker, assetpicker, hidden, button, well, include, styletab, and more  
-🔌 **Custom Resource Types** - Override `sling:resourceType` on any field via `resourceType` for unsupported or project-specific components  
-🗄️ **Extended Datasource** - `datasource` accepts a string, an object with extra attributes (e.g. `rootPath`), or a shorthand `type` (`"tags"`) for built-in AEM datasources  
-🎨 **Flexible Layouts** - Tabs, simple layouts, accordion, or fieldsets for organization  
-🔄 **Auto-generation** - XML files generated on every webpack build  
-📝 **Simple JSON** - Easy-to-read configuration instead of verbose XML  
-🎯 **Multifield Support** - Both simple and composite multifields  
-📋 **Rich Text Editor** - Full RTE configuration with customizable features  
-🗂️ **Folder Structure** - Supports both `_cq_dialog/.content.xml` and `_cq_dialog.xml` formats
-🎭 **Show/Hide** - Dynamic field visibility based on dropdown or checkbox values
-📷 **Image Upload** - Built-in support for DAM integration and file uploads
-📝 **Page Selection** - Native AEM page picker with content tree navigation
-🧩 **Content Fragments** - Full support for Content Fragment and Experience Fragment pickers
-✅ **Validation** - Regex patterns, min/max values, required fields, maxLength
-💡 **Contextual Help** - Inline help tooltips and documentation links
-🎨 **Custom Styling** - CSS classes, field width control, and Coral UI spacing
-📝 **Field Enhancements** - Default values, descriptions, placeholder/emptyText
-🎯 **Enterprise Features** - Custom IDs (granite:id), analytics tracking, render hidden, collapsible sections
-🔍 **Advanced Pickers** - Filter support, freshness control for DAM assets
-🔄 **Multifield Pro** - Delete confirmation, drag & drop reordering
-🎯 **Tracking** - trackingElement para analytics granular (además de trackingFeature)
-🧭 **UX** - autoFocus para enfocar campos al abrir el diálogo
-🧱 **Estilos** - wrapperClass para clases del contenedor
-🧪 **Tipos** - typeHint para guardar con el tipo correcto en JCR
-🎨 **Design Dialogs** - Generate design dialogs (_cq_design_dialog) for component policies
-📋 **Policy Generation** - Automatically create component policies with RTE config, styles, and more
-🎨 **Style System** - Define style groups and variants for the AEM Style System
-📐 **Component Mapping** - Configure asset-to-component drag & drop mappings
-🔄 **Dynamic Indentation** - Consistent XML indentation across all generated content
-⚡ **Auto Style Tab** - Automatic cq:styles tab generation when styleGroups are present
-🔗 **Template Integration** - Automatic policy-to-template mapping for seamless deployment
-🔌 **Include / Styletab** - Embed any Granite UI include node, with a `styletab` shorthand for the AEM Style System edit tab
+- **30+ Field Types** - textfield, textarea, select, pathfield, pagefield, checkbox, alert, multifield, RTE, fieldset, container, heading, text, tags, image, autocomplete, radiogroup, contentfragmentpicker, experiencefragmentpicker, assetpicker, hidden, button, well, include, styletab, and more
+- **Custom Resource Types** - Override `sling:resourceType` on any field via `resourceType` for unsupported or project-specific components
+- **Extended Datasource** - `datasource` accepts a string, an object with extra attributes (e.g. `rootPath`), or a shorthand `type` (`"tags"`) for built-in AEM datasources; fieldset and container also support `datasource` as the sole content source without requiring static `fields`
+- **Flexible Layouts** - Tabs, simple layouts, accordion, or fieldsets for organization
+- **Auto-generation** - XML files generated on every webpack build
+- **Simple JSON** - Easy-to-read configuration instead of verbose XML
+- **Multifield Support** - Both simple and composite multifields with delete confirmation and drag & drop reordering
+- **Rich Text Editor** - Full RTE configuration with customizable features
+- **Folder Structure** - Supports both `_cq_dialog/.content.xml` and `_cq_dialog.xml` formats
+- **Show/Hide** - Dynamic field visibility based on dropdown or checkbox values
+- **Image Upload** - Built-in support for DAM integration and file uploads
+- **Page Selection** - Native AEM page picker with content tree navigation
+- **Content Fragments** - Full support for Content Fragment and Experience Fragment pickers
+- **Validation** - Regex patterns, plain string validator keys, min/max values, required fields, maxLength
+- **Contextual Help** - Inline help tooltips and documentation links
+- **Custom Styling** - CSS classes, field width control, and Coral UI spacing
+- **Field Enhancements** - Default values, descriptions, placeholder/emptyText, autoFocus, wrapperClass
+- **Enterprise Features** - Custom IDs (`granite:id`), analytics tracking (`trackingFeature`, `trackingElement`), render hidden, collapsible sections
+- **Advanced Pickers** - Filter support, freshness control for DAM assets
+- **typeHint** - Force JCR data type on save (String, Boolean, Long, etc.)
+- **Design Dialogs** - Generate design dialogs (`_cq_design_dialog`) for component policies
+- **Policy Generation** - Automatically create component policies with RTE config, styles, and more
+- **Style System** - Define style groups and variants for the AEM Style System
+- **Component Mapping** - Configure asset-to-component drag & drop mappings
+- **Auto Style Tab** - Automatic `cq:styles` tab generation when styleGroups are present
+- **Template Integration** - Automatic policy-to-template mapping for seamless deployment
+- **Include / Styletab** - Embed any Granite UI include node, with a `styletab` shorthand for the AEM Style System edit tab
+- **Dialog Root Attributes** - `extraClientlibs`, `helpPath`, and `trackingFeature` on the `jcr:root` node of both dialog and design dialog
+- **Render Conditions** - `renderCondition` supports `simple`, `privilege`, `feature`, `and`, `or`, `legacy:simple`, full resource type paths, and explicit `resourceType` overrides
+- **graniteData child node** - `graniteData` prop generates a `<granite:data>` child node with arbitrary attributes (distinct from `data`, which generates inline `granite:data-*` attributes)
+- **Select Enhancements** - `selectType: 'editable'` creates a combobox-style input; options support `selected` and `hide` (→ `granite:hide`) attributes
 
 ## Installation
 
@@ -197,29 +196,25 @@ Override the `sling:resourceType` for any field. Use this for project-specific o
 }
 ```
 
-## What's New in v2.0.0 🎉
+### extraClientlibs, helpPath, trackingFeature (dialog root)
 
-Version 2.0.0 introduces powerful automation features that significantly reduce manual configuration and improve developer productivity:
+These properties can be set at the top level of `dialog.json` or `designDialog.json` and are emitted on the `jcr:root` node of the generated XML.
 
-### 🤖 Intelligent Automation
-- **Auto Style Tab**: Automatically generates `cq:styles` tab when policies contain `styleGroups`
-- **Template Mapping**: One-click policy deployment to multiple templates
-- **Dynamic Indentation**: Perfect XML formatting regardless of complexity
+| Property | Type | Description |
+|----------|------|-------------|
+| `extraClientlibs` | String \| Array | Client library category or categories to include in the dialog. An array is serialized as `[cat1,cat2]`. |
+| `helpPath` | String | Path to a help page linked in the dialog header. |
+| `trackingFeature` | String | Analytics tracking identifier for the entire dialog. |
 
-### 🏗️ Enhanced Architecture  
-- **Hierarchical Policies**: Proper AEM policy directory structure (`/conf/{app}/settings/wcm/policies/{app}/components/`)
-- **Consistent XML**: Unified XML generation using `buildNode()` for reliability
-- **Smart Detection**: Automatically detects when style system integration is needed
-
-### 🚀 Developer Experience
-- **Zero Configuration**: Default settings work out of the box
-- **Automatic Deployment**: Policies are instantly mapped to templates
-- **Production Ready**: Generated XML follows all AEM best practices
-
-### 📊 Comprehensive Testing
-- **239 Tests**: Complete test coverage including all new automation features
-- **Regression Protection**: Ensures backward compatibility with existing configurations
-- **Edge Case Handling**: Robust validation and error handling
+```json
+{
+  "title": "My Component",
+  "extraClientlibs": ["mysite.dialog.custom", "mysite.dialog.shared"],
+  "helpPath": "/content/help/mycomponent",
+  "trackingFeature": "mysite:mycomponent/dialog",
+  "tabs": [...]
+}
+```
 
 ## Design Dialogs & Component Policies
 
@@ -497,7 +492,7 @@ The policy XML is structured according to AEM standards and can be referenced in
 
 The plugin now includes several automatic features to streamline AEM component development:
 
-#### 🎨 Automatic cq:styles Tab Generation
+#### Automatic cq:styles Tab Generation
 
 When a policy includes `styleGroups`, the plugin automatically generates a `cq:styles` tab in the design dialog:
 
@@ -515,9 +510,7 @@ When a policy includes `styleGroups`, the plugin automatically generates a `cq:s
 }
 ```
 
-This automatically adds the AEM Style System tab to your design dialog without manual configuration.
-
-#### 🔗 Automatic Policy-to-Template Mapping
+#### Automatic Policy-to-Template Mapping
 
 Configure which templates should use a component policy by adding a `templates` array to your policy:
 
@@ -540,20 +533,6 @@ The plugin will automatically update the template policy files to include the ma
     jcr:primaryType="nt:unstructured"
     sling:resourceType="wcm/core/components/policies/mapping"/>
 ```
-
-#### 📐 Dynamic Indentation System
-
-All generated XML uses a consistent, dynamic indentation system that ensures properly formatted output regardless of nesting level or complexity.
-
-#### 📁 Correct Policy Structure
-
-Policies are automatically generated in the proper AEM directory structure:
-
-```
-/conf/{appName}/settings/wcm/policies/{appName}/components/{componentName}/.content.xml
-```
-
-This follows AEM best practices and ensures policies are properly organized.
 
 #### textarea
 ```json
@@ -588,14 +567,35 @@ This follows AEM best practices and ensures policies are properly organized.
 }
 ```
 
+**Option properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `value` | String | The stored value |
+| `text` | String | Display label |
+| `selected` | Boolean | Pre-select this option (`selected="{Boolean}true"`) |
+| `hide` | Boolean \| String | Hide this option; `true` → `granite:hide="{Boolean}true"`, or pass an EL string |
+
+**Select field properties:**
+
+| Property | Type | Description | Default |
+|----------|------|-------------|---------|
+| `emptyOption` | Boolean | Add an empty first option | `false` |
+| `forceSelection` | Boolean | Require a valid option to be selected | `false` |
+| `multiple` | Boolean | Allow multiple selections | `false` |
+| `selectType` | String | Set to `'editable'` to render an editable combobox instead of a standard dropdown | - |
+
+When `selectType: 'editable'` is set, the generated XML includes `type="editable"`, which renders the field as a combobox — authors can either pick from the list or type a custom value.
+```
+
 ## Advanced Properties
 
 - Show/Hide by expression: use `showIf` or `hideIf` to emit `granite:hide` and control field visibility.
 - Select datasource: add `datasource` (child node), `emptyOption`, `forceSelection`. Accepts three forms: a plain string (`sling:resourceType`), an object with `resourceType` plus extra attributes, or an object with `type` shorthand for built-in AEM datasources (`"tags"`).
 - Validation messages: override built-ins with `requiredMessage`, `minMessage`, `maxMessage`, `patternMessage`.
 - Order fields: place with `orderBefore` (emits `sling:orderBefore`).
-- Granite data: set `data: { key: value }` → `granite:data-key="value"` on the field.
-- Render conditions: `renderCondition` supports `simple`, `privilege`, `and`, `or` with nested conditions.
+- Granite data: set `data: { key: value }` → `granite:data-key="value"` attributes inline on the field. For a separate `<granite:data>` child node with arbitrary attributes, use `graniteData: { key: value }` instead.
+- Render conditions: `renderCondition` supports `simple`, `privilege`, `feature`, `and`, `or`, `legacy:simple`, full resource type paths (any string containing `/`), and an explicit `resourceType` override. See the render condition example below.
 - Multifield UX: `addItemLabel`, `maxItemsMessage`, `minItemsMessage`, `reorderableHandle`.
 - QoL inputs: `clearButton` (textfield), `autocomplete`, `ariaLabel`, `ariaDescribedBy`, `tooltipIcon`.
 
@@ -653,6 +653,42 @@ Examples:
 
 ```json
 {
+  "type": "textfield",
+  "name": "./betaField",
+  "label": "Beta Feature",
+  "renderCondition": {
+    "type": "feature",
+    "feature": "com.mysite.beta.feature"
+  }
+}
+```
+
+```json
+{
+  "type": "textfield",
+  "name": "./legacyField",
+  "label": "Legacy Field",
+  "renderCondition": {
+    "type": "legacy:simple",
+    "expression": "${currentUser == 'admin'}"
+  }
+}
+```
+
+```json
+{
+  "type": "textfield",
+  "name": "./customConditionField",
+  "label": "Custom Condition",
+  "renderCondition": {
+    "resourceType": "mysite/components/renderconditions/custom",
+    "param": "someValue"
+  }
+}
+```
+
+```json
+{
   "type": "multifield",
   "name": "./items",
   "label": "Items",
@@ -670,10 +706,27 @@ Examples:
   "type": "checkbox",
   "name": "./enabled",
   "label": "Enabled",
-  "text": "Enable feature",
-  "value": "true"
+  "uncheckedValue": "false",
+  "checked": true
 }
 ```
+
+Generates a Coral UI checkbox (`granite/ui/components/coral/foundation/form/checkbox`).
+
+**Properties:**
+
+| Property | Type | Description | Default |
+|----------|------|-------------|---------|
+| `name` | String | Property name (required) | - |
+| `label` | String | Used as the visible checkbox label (`text` attribute in XML) | - |
+| `value` | String | Value saved when checked | `{Boolean}true` |
+| `uncheckedValue` | String | Value saved when unchecked | `false` |
+| `checked` | Boolean \| String | Initial checked state; pass `true`/`false` or an EL expression (e.g. `"${not empty cqDesign.autoplay}"`) | - |
+| `description` | String | Help text below the field | - |
+| `required` | Boolean | Make field mandatory | `false` |
+| `disabled` | Boolean | Disable the field | `false` |
+
+> **Note:** The `label` property sets the checkbox's visible text label (mapped to the `text` XML attribute). There is no separate `text` property — `label` covers both the field label and the display text.
 
 #### numberfield
 ```json
@@ -742,14 +795,6 @@ Examples:
 }
 ```
 
-Stores values in JCR without displaying them in the dialog. Perfect for:
-- Auto-generated IDs or timestamps
-- Technical flags or metadata
-- Calculated values set by JavaScript
-- Values that authors shouldn't modify
-
-**Note:** Hidden fields have no label or visual representation.
-
 #### button
 ```json
 {
@@ -772,13 +817,6 @@ Adds clickable buttons to trigger actions:
 | `handler` | String | JavaScript handler file | - |
 | `type` | String | Button type attribute | - |
 | `disabled` | Boolean | Disable the button | `false` |
-
-**Use Cases:**
-- Trigger content generation
-- Clear form fields
-- Preview content
-- Execute custom actions
-- Integration with client libraries
 
 #### include - Embed a Granite UI Include
 ```json
@@ -860,6 +898,19 @@ Shorthand that injects the AEM Style System tab into the **edit dialog** (`_cq_d
 }
 ```
 
+Fieldset also supports a `datasource` property. When present, the plugin generates a `<datasource>` child node and `fields`/`items` become optional — the fieldset can be driven entirely by the datasource:
+
+```json
+{
+  "type": "fieldset",
+  "label": "Dynamic Options",
+  "datasource": {
+    "resourceType": "mysite/datasources/options"
+  }
+}
+```
+```
+
 #### container - Generic Container for Grouping
 ```json
 {
@@ -879,11 +930,13 @@ Shorthand that injects the AEM Style System tab into the **edit dialog** (`_cq_d
 }
 ```
 
+Like fieldset, container also accepts a `datasource` property (without requiring `fields`).
+
 **Differences:**
 - **fieldset**: Form-specific grouping with a visible label (`jcr:title`). Requires `label` property.
 - **container**: Generic grouping element without visual label. The `name` property is optional (used only for node naming).
 
-**Note:** Both support `showhideClass` for hiding entire groups of fields together.
+**Note:** Both support `showhideClass` for hiding entire groups of fields together. Both support `datasource`, `renderCondition`, and `graniteData`.
 
 #### fixedcolumns - Multi-Column Layout
 ```json
@@ -915,16 +968,6 @@ Organizes fields into side-by-side columns for better space utilization. Perfect
 | `columns` | Array | Array of column objects, each containing a `fields` array |
 | `name` | String | Optional custom node name |
 
-**Column Properties:**
-- `name` (String): Optional custom column name (default: column1, column2, etc.)
-- `fields` (Array): Array of field definitions for this column
-
-**Common Use Cases:**
-- Name and contact info side by side
-- Address fields in multiple columns
-- Date ranges (From/To)
-- Compact form layouts
-
 #### well - Visual Grouping Container
 ```json
 {
@@ -947,14 +990,6 @@ A well is a container with a subtle gray background that visually groups related
 | `fields` | Array | Array of field definitions to display in the well |
 | `name` | String | Optional custom node name |
 
-**When to Use:**
-- Highlighting optional or advanced settings
-- Visually separating field groups without tabs
-- Drawing attention to important configuration sections
-- Creating visual hierarchy within a tab
-
-**Visual Effect:** Fields appear with a light gray background, creating a subtle "inset" appearance that groups them together.
-
 #### heading - Section Heading
 ```json
 {
@@ -973,7 +1008,7 @@ Creates a visual heading element to organize dialog sections. Does not store any
 | `text` | String | The heading text to display (required) | - |
 | `level` | Number | Heading level (1-6) | 3 |
 
-#### text - Informational Text / Alert
+#### text - Informational Text
 ```json
 {
   "type": "text",
@@ -982,7 +1017,7 @@ Creates a visual heading element to organize dialog sections. Does not store any
 }
 ```
 
-Displays static informational text or alerts. Does not store any data. Also accepts `"type": "alert"` as an alias.
+Displays static informational text. Does not store any data.
 
 **Properties:**
 
@@ -991,11 +1026,25 @@ Displays static informational text or alerts. Does not store any data. Also acce
 | `text` | String | The message to display (required) | - |
 | `variant` | String | Visual style: `info`, `warning`, `error`, `success` | `info` |
 
-**Common Use Cases:**
-- Help text and instructions
-- Warnings about field impacts
-- Error messages or important notes
-- Success confirmation messages
+#### alert - Coral UI Alert Component
+```json
+{
+  "type": "alert",
+  "text": "Changes to this field will affect all child pages.",
+  "variant": "warning",
+  "size": "S"
+}
+```
+
+Renders a proper Coral UI `<coral-alert>` component (`granite/ui/components/coral/foundation/alert`). Does not store any data. Use `alert` when you need the full Coral alert appearance; use `text` for simple inline notices.
+
+**Properties:**
+
+| Property | Type | Description | Default |
+|----------|------|-------------|---------|
+| `text` | String | The alert message (required) | - |
+| `variant` | String | Visual style: `info`, `warning`, `error`, `success` | `info` |
+| `size` | String | Alert size: `S`, `M`, `L` | `S` |
 
 #### tags - AEM Tag Selector
 ```json
@@ -1018,12 +1067,6 @@ Provides an AEM tag picker that allows users to select from the AEM tagging syst
 | `label` | String | Field label (required) | - |
 | `rootPath` | String | Root path in tag hierarchy | `/content/cq:tags` |
 | `required` | Boolean | Make field mandatory | `false` |
-
-**Common Use Cases:**
-- Content categorization
-- SEO keywords
-- Content filtering and search
-- Taxonomy management
 
 #### image - Image Upload and Selection
 ```json
@@ -1052,12 +1095,6 @@ Provides an image upload field with DAM integration. Supports drag-and-drop, fil
 | `fileReferenceParameter` | String | Property for file reference | `./fileReference` |
 | `required` | Boolean | Make field mandatory | `false` |
 
-**Common Use Cases:**
-- Hero images and banners
-- Product images
-- Author avatars
-- Background images
-
 #### autocomplete - Autocomplete Field
 ```json
 {
@@ -1081,12 +1118,6 @@ Provides an autocomplete field with optional datasource integration for dynamic 
 | `multiple` | Boolean | Allow multiple selections | `false` |
 | `forceSelection` | Boolean | Only allow values from suggestions | `true` |
 | `required` | Boolean | Make field mandatory | `false` |
-
-**Common Use Cases:**
-- Product selection
-- User search
-- Category selection
-- Dynamic value lists
 
 #### radiogroup - Radio Button Group
 ```json
@@ -1121,12 +1152,6 @@ Displays a group of radio buttons. Better than select when you have 2-4 options 
 - `text` (String): Display text
 - `checked` (Boolean): Default selected option
 
-**Common Use Cases:**
-- Layout selection (2-3 options)
-- Yes/No questions
-- Content type selection
-- Alignment options (left/center/right)
-
 #### pagefield - AEM Page Selector
 ```json
 {
@@ -1137,8 +1162,6 @@ Displays a group of radio buttons. Better than select when you have 2-4 options 
   "rootPath": "/content/mysite/en"
 }
 ```
-
-Provides an AEM-specific page selector with content tree navigation. Essential for any component that links to other pages.
 
 **Properties:**
 
@@ -1157,13 +1180,6 @@ Provides an AEM-specific page selector with content tree navigation. Essential f
 | `disabled` | Boolean | Disable the field | `false` |
 | `required` | Boolean | Make field mandatory | `false` |
 
-**Common Use Cases:**
-- Navigation links
-- Call-to-action buttons
-- Related content links
-- Breadcrumb configuration
-- Footer links
-
 #### contentfragmentpicker - Content Fragment Selector
 ```json
 {
@@ -1175,8 +1191,6 @@ Provides an AEM-specific page selector with content tree navigation. Essential f
   "fragmentModel": "/conf/mysite/settings/dam/cfm/models/article"
 }
 ```
-
-Provides a Content Fragment picker for selecting structured content. Essential for AEM headless and content-driven sites.
 
 **Properties:**
 
@@ -1193,13 +1207,6 @@ Provides a Content Fragment picker for selecting structured content. Essential f
 | `disabled` | Boolean | Disable the field | `false` |
 | `required` | Boolean | Make field mandatory | `false` |
 
-**Common Use Cases:**
-- Article content references
-- Product data integration
-- Headless content delivery
-- Structured data references
-- Multi-channel content
-
 #### experiencefragmentpicker - Experience Fragment Selector
 ```json
 {
@@ -1210,8 +1217,6 @@ Provides a Content Fragment picker for selecting structured content. Essential f
   "rootPath": "/content/experience-fragments/mysite"
 }
 ```
-
-Provides an Experience Fragment picker for reusable component compositions. Perfect for headers, footers, and repeated content blocks.
 
 **Properties:**
 
@@ -1227,13 +1232,6 @@ Provides an Experience Fragment picker for reusable component compositions. Perf
 | `disabled` | Boolean | Disable the field | `false` |
 | `required` | Boolean | Make field mandatory | `false` |
 
-**Common Use Cases:**
-- Global headers and footers
-- Reusable content blocks
-- Multi-variant content
-- Promotional banners
-- Email templates
-
 #### assetpicker - Generic Asset Selector
 ```json
 {
@@ -1245,8 +1243,6 @@ Provides an Experience Fragment picker for reusable component compositions. Perf
   "mimeTypes": ["video/mp4", "video/webm", "application/pdf"]
 }
 ```
-
-Provides a generic DAM asset picker with mime type filtering. More flexible than `image` for videos, documents, and other file types.
 
 **Properties:**
 
@@ -1265,13 +1261,6 @@ Provides a generic DAM asset picker with mime type filtering. More flexible than
 | `typeHint` | String | JCR/Sling type hint | - |
 | `disabled` | Boolean | Disable the field | `false` |
 | `required` | Boolean | Make field mandatory | `false` |
-
-**Common Use Cases:**
-- Video assets
-- PDF documents
-- Downloadable files
-- Audio files
-- Mixed media selection
 
 #### rte - Rich Text Editor
 ```json
@@ -1555,49 +1544,6 @@ Show fields when checkbox is checked:
 }
 ```
 
-### Hiding Groups of Fields with Container
-
-You can use `container` or `fieldset` with `showhideClass` and `showhidetargetvalue` to hide multiple fields as a group:
-
-```json
-{
-  "type": "select",
-  "name": "./mode",
-  "label": "Display Mode",
-  "cqShowHide": true,
-  "showhideTarget": ".mode-settings",
-  "options": [
-    { "text": "Simple", "value": "simple" },
-    { "text": "Advanced", "value": "advanced" }
-  ]
-},
-{
-  "type": "container",
-  "name": "advancedSettings",
-  "showhideClass": "mode-settings",
-  "showhidetargetvalue": "advanced",
-  "fields": [
-    {
-      "type": "textfield",
-      "name": "./customClass",
-      "label": "Custom CSS Class"
-    },
-    {
-      "type": "numberfield",
-      "name": "./customWidth",
-      "label": "Custom Width"
-    },
-    {
-      "type": "textfield",
-      "name": "./dataAttributes",
-      "label": "Data Attributes"
-    }
-  ]
-}
-```
-
-This will show/hide all three fields inside the container only when "Advanced" is selected. Note that `container` doesn't require a `label` - it's just a grouping element.
-
 #### multifield - Repeatable Fields
 
 **Simple Multifield** (single field repeated):
@@ -1693,17 +1639,9 @@ Tabs can be shown or hidden based on the value of another field:
 }
 ```
 
-The "Advanced Settings" tab will only appear when the "Enable Advanced Features" checkbox is checked.
-
 **showIf Properties:**
 - `field` (String): Path to the field to check (e.g., `./enableAdvanced`)
 - `value` (Any): Value to compare against (true, false, "video", etc.)
-
-**Use Cases:**
-- Advanced/expert mode settings
-- Content-type specific tabs (show video tab only when content type is "video")
-- Optional feature configurations
-- Progressive disclosure to simplify UX
 
 ## Accordion Layout
 
@@ -1746,10 +1684,6 @@ Use `layout: 'accordion'` for collapsible sections instead of tabs:
 - `fields` (Array): Fields within this section
 - `name` (String): Optional custom node name
 
-**When to use Accordion vs Tabs:**
-- **Accordion**: Many sections, progressive disclosure, or when authors need to see multiple sections at once
-- **Tabs**: Few sections (2-5), mutually exclusive content, or when a cleaner single-view interface is preferred
-
 ## Field Descriptions
 
 Add helpful guidance text below any field using the `description` property:
@@ -1764,8 +1698,6 @@ Add helpful guidance text below any field using the `description` property:
 }
 ```
 
-The description appears below the field in a lighter font, providing context and instructions to content authors.
-
 ### Placeholder Text
 
 Add example text inside empty fields using the `placeholder` property:
@@ -1778,11 +1710,6 @@ Add example text inside empty fields using the `placeholder` property:
   "placeholder": "Enter your username"
 }
 ```
-
-Placeholder text appears in a lighter color inside empty fields and disappears when the user starts typing. Very useful for:
-- Showing format examples ("MM/DD/YYYY")
-- Providing input hints ("Type to search...")
-- Clarifying expected values ("e.g., john.doe@example.com")
 
 **Supported on:** textfield, textarea, numberfield, pathfield, select, autocomplete
 
@@ -1801,23 +1728,9 @@ Set numeric range constraints on number fields:
 }
 ```
 
-The `min` and `max` properties enforce numeric boundaries:
+**Properties:**
 - `min` (Number): Minimum allowed value (inclusive)
 - `max` (Number): Maximum allowed value (inclusive)
-- Works with `numberfield` type
-- Browser-native validation
-
-**Common Use Cases:**
-```json
-// Percentage (0-100)
-{ "type": "numberfield", "name": "./opacity", "label": "Opacity %", "min": 0, "max": 100 }
-
-// Positive numbers only
-{ "type": "numberfield", "name": "./quantity", "label": "Quantity", "min": 1 }
-
-// Rating system
-{ "type": "numberfield", "name": "./rating", "label": "Rating", "min": 1, "max": 5 }
-```
 
 ### Disabled and ReadOnly Fields
 
@@ -1847,14 +1760,6 @@ Control field interactivity:
 - `disabled` (Boolean): Disables the field completely (default: `false`)
 - `readOnly` (Boolean): Makes field read-only but still submits value (default: `false`)
 
-**Key Differences:**
-- **Disabled**: Field is grayed out and value is NOT submitted
-- **ReadOnly**: Field looks normal but can't be edited, value IS submitted
-
-**Use Cases:**
-- Disabled: Conditional fields, insufficient permissions, calculated values
-- ReadOnly: System-generated IDs, timestamps, inherited values, display-only info
-
 ### Multiple Selection
 
 Allow selecting multiple options in dropdowns:
@@ -1872,17 +1777,6 @@ Allow selecting multiple options in dropdowns:
   ]
 }
 ```
-
-The `multiple` property enables multi-select:
-- Works on `select` and `autocomplete` field types
-- Users can select multiple values using Ctrl/Cmd + click
-- Values are stored as an array
-
-**Common Use Cases:**
-- Tag selection
-- Category assignment
-- Permission selection
-- Feature toggles
 
 ### Contextual Help
 
@@ -1909,18 +1803,6 @@ Add help icon with tooltip next to field labels:
   "options": [...]
 }
 ```
-
-The `contextualHelp` property adds a small ⓘ icon next to the field label:
-- **String value**: Shows tooltip on hover
-- **Object value**: Shows tooltip and optional "Learn more" link
-  - `text` (String): Tooltip content
-  - `url` (String): External documentation URL
-
-**Benefits:**
-- Keeps UI clean while providing detailed help
-- Reduces need for lengthy field descriptions
-- Links to external documentation for complex features
-- Standard AEM pattern for contextual assistance
 
 ### Custom CSS Classes
 
@@ -1952,12 +1834,6 @@ Add custom CSS classes to any field using the `className` property:
   "className": ["large-textarea", "rich-editor"]
 }
 ```
-
-The `className` property allows you to:
-- Apply custom styling to specific fields
-- Add JavaScript selector hooks for custom behavior
-- Highlight important or required fields visually
-- Maintain consistent styling across similar fields
 
 **Note:** Custom classes are merged with existing Granite UI classes (like show/hide classes) and added to the field's `granite:class` attribute.
 
@@ -1992,18 +1868,6 @@ Control the width of individual fields using the `width` property:
 }
 ```
 
-The `width` property accepts:
-- **Pixel values**: "100px", "250px"
-- **Percentages**: "50%", "75%"
-- **Numeric strings**: "200" (treated as pixels)
-- **CSS values**: "auto", "fit-content"
-
-**Common Use Cases:**
-- Short input fields for codes, IDs, or numbers
-- Compact layouts with multiple fields per row
-- Consistent sizing across related fields
-- Optimizing dialog space utilization
-
 ### Coral UI Spacing (Margin)
 
 Control vertical spacing between fields using the `margin` property:
@@ -2030,40 +1894,6 @@ Control vertical spacing between fields using the `margin` property:
   "type": "textfield",
   "name": "./field2",
   "label": "Field 2"
-}
-```
-
-The `margin` property controls Coral UI's vertical spacing:
-- **`true`**: Adds standard margin above the field
-- **`false`**: Removes margin for tight layouts
-- **`undefined`**: Uses Coral UI default spacing
-
-**When to Use:**
-- `margin: true`: Add visual separation before headings or new sections
-- `margin: false`: Create compact, dense layouts; group tightly related fields
-- Default: Most fields should use default Coral spacing
-
-**Common Patterns:**
-```json
-// Section with visual breathing room
-{
-  "type": "heading",
-  "text": "Section Title",
-  "margin": true
-},
-
-// Compact field group (address fields, name parts, etc.)
-{
-  "type": "textfield",
-  "name": "./street1",
-  "label": "Street Address",
-  "margin": false
-},
-{
-  "type": "textfield",
-  "name": "./street2",
-  "label": "Apt/Suite",
-  "margin": false
 }
 ```
 
@@ -2110,18 +1940,6 @@ Set initial values for fields using the `defaultValue` property:
 }
 ```
 
-The `defaultValue` property:
-- Sets the initial value when component is first added
-- Works with all field types (textfield, numberfield, checkbox, select, etc.)
-- Values are stored in the `value` attribute in the XML
-- Useful for sensible defaults that authors can modify
-
-**Common Use Cases:**
-- Default "Read More" text for CTAs
-- Pre-set quantity to 1 in product components
-- Enable features by default (opt-out vs opt-in)
-- Default theme or style selection
-
 ### Field Descriptions
 
 Add helpful descriptive text below field labels using the `description` property:
@@ -2150,32 +1968,6 @@ Add helpful descriptive text below field labels using the `description` property
   "min": 100,
   "max": 5000,
   "defaultValue": 1000
-}
-```
-
-The `description` property:
-- Adds `fieldDescription` attribute in AEM
-- Appears as gray text below the field label
-- Helps authors understand field purpose and constraints
-- Supports special characters (automatically escaped)
-
-**When to Use:**
-- Explaining technical fields (CSS classes, regex patterns)
-- Providing examples or format requirements
-- Clarifying business rules or constraints
-- Guiding authors on best practices
-
-**Pro Tip:** Combine with `contextualHelp` for comprehensive guidance:
-```json
-{
-  "type": "textfield",
-  "name": "./regex",
-  "label": "Validation Pattern",
-  "description": "JavaScript regex pattern for validation",
-  "contextualHelp": {
-    "text": "Enter a valid JavaScript regular expression",
-    "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions"
-  }
 }
 ```
 
@@ -2213,33 +2005,6 @@ Limit the number of characters users can enter using the `maxLength` property:
 }
 ```
 
-The `maxLength` property:
-- Adds `maxlength` attribute to the field
-- Prevents users from entering more than the specified number of characters
-- Browser-native validation (no form submission required)
-- Works with `textfield`, `textarea`, and `pathfield` types
-
-**Common Use Cases:**
-```json
-// Tweet-length content
-{ "maxLength": 280 }
-
-// Meta descriptions for SEO
-{ "maxLength": 160 }
-
-// Headline/Title fields
-{ "maxLength": 100 }
-
-// Product codes or IDs
-{ "maxLength": 20 }
-```
-
-**Best Practices:**
-- Always inform users about the limit (via description or placeholder)
-- Consider UX: extremely restrictive limits can frustrate authors
-- Use in combination with required validation for data quality
-- Common limits: 50 (titles), 160 (meta), 500 (short descriptions), 2000 (long content)
-
 ### Empty Text
 
 Provide placeholder text using the `emptyText` property (Coral UI native alternative to `placeholder`):
@@ -2268,50 +2033,6 @@ Provide placeholder text using the `emptyText` property (Coral UI native alterna
   "label": "Event Date",
   "emptyText": "MM/DD/YYYY"
 }
-```
-
-The `emptyText` property:
-- Native Coral UI property (semantic alternative to placeholder)
-- Displays hint text in empty fields
-- Disappears when user starts typing
-- If both `placeholder` and `emptyText` are specified, `emptyText` takes precedence
-
-**Difference from `placeholder`:**
-- `placeholder` → Converted to `emptyText` in AEM (for backward compatibility)
-- `emptyText` → Direct Coral UI property (more semantic)
-- Both achieve the same visual result
-- Use `emptyText` for new implementations, `placeholder` for familiarity
-
-**Common Patterns:**
-```json
-// Format hints
-{ "emptyText": "YYYY-MM-DD" }
-{ "emptyText": "(555) 123-4567" }
-
-// Action prompts
-{ "emptyText": "Start typing..." }
-{ "emptyText": "Select an option" }
-
-// Examples
-{ "emptyText": "e.g., John Doe" }
-{ "emptyText": "e.g., /content/mysite/en" }
-```
-
-**Pro Tip:** For complex format requirements, combine with `description` or `validation`:
-```json
-{
-  "type": "textfield",
-  "name": "./phone",
-  "label": "Phone Number",
-  "emptyText": "(555) 123-4567",
-  "description": "US phone numbers only",
-  "validation": {
-    "pattern": "^\\(\\d{3}\\) \\d{3}-\\d{4}$",
-    "message": "Please use format: (555) 123-4567"
-  }
-}
-```
-
 ```
 
 ### Granite ID (Custom Field IDs)
@@ -2354,34 +2075,6 @@ Assign custom IDs to fields for JavaScript integration and specific styling usin
 }
 ```
 
-The `graniteId` property:
-- Adds `granite:id` attribute to the field
-- Provides stable, predictable IDs for JavaScript selectors
-- Useful for custom client libraries and interactions
-- Better than relying on generated or name-based IDs
-
-**Common Use Cases:**
-- Custom JavaScript validation or formatting
-- Integration with third-party libraries
-- Dynamic field behavior (calculations, cascading dropdowns)
-- Automated testing with stable selectors
-- CSS styling for specific fields
-
-**Best Practices:**
-```json
-// Use descriptive, kebab-case IDs
-{ "graniteId": "hero-title-input" }
-{ "graniteId": "primary-cta-link" }
-
-// Prefix by component or feature
-{ "graniteId": "carousel-slide-count" }
-{ "graniteId": "video-autoplay-toggle" }
-
-// Avoid generic names
-// ❌ Bad: "field1", "input", "select"
-// ✅ Good: "product-sku", "author-bio", "featured-image"
-```
-
 ### Tracking Feature (Analytics Integration)
 
 Add analytics tracking identifiers to fields using the `trackingFeature` property:
@@ -2413,41 +2106,6 @@ Add analytics tracking identifiers to fields using the `trackingFeature` propert
   "rootPath": "/content"
 }
 ```
-
-The `trackingFeature` property:
-- Adds `trackingFeature` attribute for analytics frameworks
-- Enables tracking of component configuration patterns
-- Helps identify which features are most used by authors
-- Integrates with Adobe Analytics or custom tracking solutions
-
-**Enterprise Use Cases:**
-```json
-// Component adoption tracking
-{
-  "trackingFeature": "layout-grid-usage"
-}
-
-// Feature flag analysis
-{
-  "trackingFeature": "personalization-enabled"
-}
-
-// Content strategy insights
-{
-  "trackingFeature": "video-content-type"
-}
-
-// A/B testing configurations
-{
-  "trackingFeature": "variation-b-selected"
-}
-```
-
-**Analytics Dashboard Examples:**
-- Most configured component features
-- Template selection trends
-- Feature adoption rates
-- Author workflow patterns
 
 ### Render Hidden
 
@@ -2490,13 +2148,6 @@ Conditionally hide fields in the UI while preserving their functionality using t
 }
 ```
 
-The `renderHidden` property:
-- Adds `renderHidden="{Boolean}true"` attribute
-- Hides field in dialog UI but keeps it in DOM
-- Different from `type: "hidden"` (which never renders)
-- Can be shown/hidden dynamically with JavaScript
-- Field still submits its value when form is saved
-
 **Difference from `type: "hidden"`:**
 | Feature | `renderHidden: true` | `type: "hidden"` |
 |---------|---------------------|------------------|
@@ -2504,29 +2155,6 @@ The `renderHidden` property:
 | Can be revealed | ✅ Yes | ❌ No |
 | Label shown | ❌ No (while hidden) | ❌ Never |
 | Use case | Conditional UI | Always hidden data |
-
-**Common Patterns:**
-```json
-// Admin-only fields
-{
-  "renderHidden": true,
-  "graniteId": "admin-field",
-  "description": "Revealed for admin users via JS"
-}
-
-// Progressive disclosure
-{
-  "renderHidden": true,
-  "className": "expert-mode-field"
-  // Shown when "Expert Mode" is enabled
-}
-
-// Feature flag controlled
-{
-  "renderHidden": true,
-  "description": "Beta feature, hidden until flag enabled"
-}
-```
 
 ### Collapsible Fieldsets and Containers
 
@@ -2576,82 +2204,6 @@ Make fieldsets and containers collapsible to organize long dialogs using the `co
   "fields": [
     { "type": "select", "name": "./effect", "label": "Effect", "options": [...] },
     { "type": "numberfield", "name": "./duration", "label": "Duration (ms)" }
-  ]
-}
-```
-
-The `collapsible` property:
-- Adds `collapsible="{Boolean}true"` attribute
-- Renders a collapse/expand toggle icon
-- Helps organize long dialogs into manageable sections
-- Users can collapse sections they don't need
-- Works with `fieldset` and `container` types
-
-**Best Practices:**
-```json
-// Group related optional settings
-{
-  "type": "fieldset",
-  "label": "Optional: SEO Settings",
-  "collapsible": true,
-  "fields": [...]
-}
-
-// Separate advanced from basic options
-{
-  "type": "fieldset",
-  "label": "Basic Settings",
-  "collapsible": false,  // Always visible
-  "fields": [...]
-},
-{
-  "type": "fieldset",
-  "label": "Advanced Settings",
-  "collapsible": true,  // Collapsed by default
-  "fields": [...]
-}
-
-// Technical/developer options
-{
-  "type": "fieldset",
-  "label": "Developer Options",
-  "collapsible": true,
-  "description": "Technical settings for advanced users",
-  "fields": [...]
-}
-```
-
-**When to Use:**
-- Dialogs with 10+ fields
-- Optional or rarely-used settings
-- Advanced configuration sections
-- Grouping related fields for better UX
-- SEO, analytics, or technical settings
-
-**Dialog Organization Pattern:**
-```json
-{
-  "title": "Hero Component",
-  "tabs": [
-    {
-      "title": "Content",
-      "fields": [
-        // Always visible core fields
-        { "type": "textfield", "name": "./title", "label": "Title" },
-        { "type": "textarea", "name": "./description", "label": "Description" },
-        
-        // Collapsible optional sections
-        {
-          "type": "fieldset",
-          "label": "Call to Action",
-          "collapsible": true,
-          "fields": [
-            { "type": "textfield", "name": "./ctaText", "label": "CTA Text" },
-            { "type": "pathfield", "name": "./ctaLink", "label": "CTA Link" }
-          ]
-        }
-      ]
-    }
   ]
 }
 ```
@@ -2707,36 +2259,6 @@ Filter selectable items in path-based pickers using the `filter` property:
 }
 ```
 
-The `filter` property:
-- Restricts selectable items in path browsers
-- Works with `pathfield`, `pagefield`, and `assetpicker`
-- Supports multiple filter types
-
-**Common Filter Patterns:**
-```json
-// Asset types
-{ "filter": "folder" }                              // Only folders
-{ "filter": "hierarchyNotFile" }                    // Folders and pages (no files)
-{ "filter": "mimetype:image/*" }                    // All images
-{ "filter": "mimetype:image/jpeg,mimetype:image/png" }  // Specific image formats
-{ "filter": "mimetype:application/pdf" }            // PDF documents
-{ "filter": "mimetype:video/*" }                    // All videos
-
-// Page templates
-{ "filter": "template:/conf/mysite/settings/wcm/templates/page" }
-{ "filter": "template:/apps/mysite/templates/homepage" }
-
-// Combined filters
-{ "filter": "folder,mimetype:image/*" }             // Folders and images
-```
-
-**Use Cases:**
-- **Image pickers**: Restrict to specific image formats (JPG, PNG, WebP)
-- **Document pickers**: Allow only PDFs or Office documents
-- **Folder selection**: Ensure users select folders, not files
-- **Template-based**: Show only specific page types (landing pages, articles)
-- **Content organization**: Guide authors to correct content locations
-
 ### Force Ignore Freshness (DAM Assets)
 
 Force revalidation of DAM assets to avoid cache issues using the `forceIgnoreFreshness` property:
@@ -2772,42 +2294,6 @@ Force revalidation of DAM assets to avoid cache issues using the `forceIgnoreFre
   "rootPath": "/content/dam/brand-assets"
 }
 ```
-
-The `forceIgnoreFreshness` property:
-- Adds `forceIgnoreFreshness="{Boolean}true"` attribute
-- Forces AEM to revalidate asset metadata and thumbnails
-- Bypasses client-side caching for asset browser
-- Useful for frequently updated or time-sensitive assets
-
-**When to Use:**
-```json
-// Frequently updated assets
-{
-  "forceIgnoreFreshness": true,
-  "description": "Product images updated daily"
-}
-
-// Time-sensitive content
-{
-  "forceIgnoreFreshness": true,
-  "description": "Campaign assets with expiration dates"
-}
-
-// Multi-environment sync issues
-{
-  "forceIgnoreFreshness": true,
-  "description": "Assets replicated across environments"
-}
-
-// Cache-sensitive workflows
-{
-  "forceIgnoreFreshness": true,
-  "description": "Assets modified by external DAM processes"
-}
-```
-
-**Performance Note:**
-Only use `forceIgnoreFreshness: true` when necessary, as it bypasses caching and may impact performance. Most asset pickers don't need this property.
 
 ### Delete Confirmation (Multifield)
 
@@ -2853,38 +2339,6 @@ Add confirmation messages when deleting multifield items using the `deleteHint` 
   ]
 }
 ```
-
-The `deleteHint` property:
-- Adds `deleteHint` attribute to multifield
-- Shows confirmation dialog before deleting items
-- Prevents accidental deletions
-- Customizable message for context
-
-**Message Guidelines:**
-```json
-// Casual/Simple content
-{ "deleteHint": "Delete this item?" }
-{ "deleteHint": "Remove this entry?" }
-
-// Important content
-{ "deleteHint": "Are you sure you want to delete this item?" }
-{ "deleteHint": "This action cannot be undone. Continue?" }
-
-// Critical/System data
-{ "deleteHint": "⚠️ WARNING: Deleting this may cause system issues. Proceed?" }
-{ "deleteHint": "This will permanently remove the configuration. Are you absolutely sure?" }
-
-// Contextual hints
-{ "deleteHint": "Removing this slide will affect the carousel. Delete anyway?" }
-{ "deleteHint": "This member is referenced in 3 projects. Still delete?" }
-```
-
-**Best Practices:**
-- Always use for complex composite multifields
-- Use for items with many fields or significant data
-- Make messages clear and actionable
-- Consider the user's context and what they're deleting
-- Optional for simple single-field multifields (like tag lists)
 
 ### Ordered/Sortable Multifields
 
@@ -2952,67 +2406,6 @@ Enable drag & drop reordering of multifield items using the `ordered` property:
 }
 ```
 
-The `ordered` property:
-- Adds `orderable="{Boolean}true"` attribute
-- Enables drag & drop handles on multifield items
-- Preserves order in JCR (item order matters)
-- Visual indication of sortability in dialog
-
-**When Order Matters:**
-```json
-// Sequential content
-{ "ordered": true }  // Carousel slides, image galleries, step-by-step guides
-
-// Navigation structures
-{ "ordered": true }  // Menu items, breadcrumbs, footer links
-
-// Priority lists
-{ "ordered": true }  // Featured products, top articles, recommended items
-
-// Process flows
-{ "ordered": true }  // Workflow steps, tutorial stages, form sections
-
-// Timeline events
-{ "ordered": true }  // Historical events, project milestones, release notes
-```
-
-**When Order Doesn't Matter:**
-```json
-// Unordered collections
-{ "ordered": false }  // Tags, categories, team members, contact addresses
-
-// Sets (no intrinsic order)
-// Default behavior - no need to specify ordered: false
-```
-
-**UX Tips:**
-- Add "(Drag to Reorder)" or similar to label when `ordered: true`
-- Use description to explain ordering significance
-- Consider combining with `deleteHint` for safety
-- Visual drag handles appear automatically in AEM Touch UI
-
-**Example - Complete Sortable Multifield:**
-```json
-{
-  "type": "multifield",
-  "name": "./testimonials",
-  "label": "Customer Testimonials (Drag to Reorder by Priority)",
-  "description": "Order determines display sequence on the homepage",
-  "ordered": true,
-  "deleteHint": "Remove this testimonial?",
-  "minItems": 3,
-  "maxItems": 10,
-  "composite": true,
-  "fields": [
-    { "type": "textarea", "name": "./quote", "label": "Quote", "required": true, "maxLength": 300 },
-    { "type": "textfield", "name": "./author", "label": "Author Name", "required": true },
-    { "type": "textfield", "name": "./position", "label": "Position/Company" },
-    { "type": "pathfield", "name": "./photo", "label": "Photo", "rootPath": "/content/dam/testimonials", "filter": "mimetype:image/*" },
-    { "type": "numberfield", "name": "./rating", "label": "Rating", "min": 1, "max": 5, "defaultValue": 5 }
-  ]
-}
-```
-
 ## Additional Field Properties
 
 ### Multifield Control
@@ -3061,9 +2454,20 @@ Add pattern validation to text inputs:
 }
 ```
 
-The `validation` object supports:
-- `pattern` (String): Regular expression for validation
-- `message` (String): Custom error message shown to the user
+You can also pass `validation` as a plain string to reference a named validator registered in the Granite UI client libraries:
+
+```json
+{
+  "type": "textfield",
+  "name": "./id",
+  "label": "Component ID",
+  "validation": "html-unique-id-validator"
+}
+```
+
+The `validation` property supports:
+- **Object** with `pattern` (regex) and optional `message`
+- **String** — passed directly as the `validation` attribute (named validator key)
 
 **Common patterns:**
 ```json
@@ -3551,299 +2955,6 @@ Example showcasing `heading`, `text/alert`, and `tags` field types:
 }
 ```
 
-## Best Practices
-
-### 1. Use Fieldsets for Logical Grouping
-
-✅ **Good:**
-```json
-{
-  "type": "fieldset",
-  "label": "Author Information",
-  "fields": [
-    { "type": "textfield", "name": "./authorName", "label": "Name" },
-    { "type": "textfield", "name": "./authorEmail", "label": "Email" }
-  ]
-}
-```
-
-### 2. Choose the Right Layout
-
-- **Tabs**: Complex components with many fields (>8)
-- **Simple**: Basic components with few fields (<5)
-- **Fieldsets**: Group related fields within tabs
-
-### 3. Multifield Usage
-
-- **Simple multifield**: Single field repeated (tags, URLs)
-- **Composite multifield**: Multiple related fields (slides, team members)
-
-### 4. RTE Configuration
-
-- Use `"*"` for full-featured editor
-- Specify individual features for simpler editors
-- Always include `"bold"`, `"italic"` as minimum
-
-### 5. Use Headings and Alerts for Better UX
-
-✅ **Good:**
-```json
-{
-  "type": "heading",
-  "text": "SEO Settings",
-  "level": 3
-},
-{
-  "type": "text",
-  "text": "These settings improve search engine visibility.",
-  "variant": "info"
-},
-{
-  "type": "textfield",
-  "name": "./metaTitle",
-  "label": "Meta Title"
-}
-```
-
-**Benefits:**
-- Visual separation of dialog sections
-- Context and help for authors
-- Warnings for important settings
-- No data stored (purely presentational)
-
-### 6. Tags for Content Organization
-
-Use the `tags` field type instead of textfield for taxonomy:
-
-✅ **Good:**
-```json
-{
-  "type": "tags",
-  "name": "./cq:tags",
-  "label": "Categories",
-  "rootPath": "/content/cq:tags/mysite"
-}
-```
-
-❌ **Avoid:**
-```json
-{
-  "type": "textfield",
-  "name": "./category",
-  "label": "Category"
-}
-```
-
-**Benefits:**
-- Consistent taxonomy across site
-- Tag validation and autocomplete
-- Integration with AEM's tag management
-- Better search and filtering
-
-### 7. Choose the Right Selection Control
-
-**Select vs RadioGroup vs Autocomplete:**
-
-- **select**: Use for 5+ options or when space is limited
-- **radiogroup**: Use for 2-4 options that should be immediately visible
-- **autocomplete**: Use for dynamic lists or searchable options with many items
-
-✅ **RadioGroup for few options:**
-```json
-{
-  "type": "radiogroup",
-  "name": "./alignment",
-  "label": "Text Alignment",
-  "options": [
-    { "value": "left", "text": "Left" },
-    { "value": "center", "text": "Center" },
-    { "value": "right", "text": "Right" }
-  ]
-}
-```
-
-✅ **Autocomplete for many options:**
-```json
-{
-  "type": "autocomplete",
-  "name": "./author",
-  "label": "Select Author",
-  "datasource": "/apps/mysite/datasources/authors",
-  "multiple": false
-}
-```
-
-### 8. Image Upload Best Practices
-
-Always specify image constraints and provide guidance:
-
-```json
-{
-  "type": "image",
-  "name": "./heroImage",
-  "label": "Hero Image",
-  "required": true,
-  "uploadUrl": "/content/dam/mysite/heroes",
-  "mimeTypes": ["image/jpeg", "image/png", "image/webp"]
-},
-{
-  "type": "text",
-  "text": "Recommended size: 1920x1080 pixels. Maximum file size: 2MB.",
-  "variant": "info"
-}
-```
-
-**Benefits:**
-- Clear expectations for content authors
-- Consistent image quality
-- Proper DAM organization
-- Format validation
-
-## Troubleshooting
-
-### XML files not generated
-
-1. Check `dialog.json` exists in component folder
-2. Verify JSON is valid
-3. Check paths in webpack config are correct
-4. Enable `verbose: true` to see logs
-
-### Wrong field types
-
-Make sure you're using supported types:
-- **Form fields**: textfield, textarea, pathfield, pagefield, checkbox, select, radiogroup
-- **Special inputs**: datepicker, numberfield, colorfield, switch, hidden, fileupload, image
-- **Advanced**: multifield, fieldset, container, rte, autocomplete
-- **AEM Pickers**: contentfragmentpicker, experiencefragmentpicker, assetpicker
-- **Organizational**: heading, text/alert, tags
-
-### Build errors
-
-```bash
-# Check webpack config
-cat webpack.common.js | grep AemDialogGeneratorPlugin
-
-# Verify paths
-ls -la src/main/webpack/components/*/dialog.json
-```
-
-## Output Example
-
-**Input** (`dialog.json`):
-```json
-{
-  "title": "Button",
-  "layout": "simple",
-  "fields": [
-    {
-      "type": "textfield",
-      "name": "./text",
-      "label": "Text",
-      "required": true
-    }
-  ]
-}
-```
-
-**Output** (`_cq_dialog/.content.xml`):
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" 
-          xmlns:jcr="http://www.jcp.org/jcr/1.0"
-          xmlns:nt="http://www.jcp.org/jcr/nt/1.0" 
-          xmlns:cq="http://www.day.com/jcr/cq/1.0"
-          xmlns:granite="http://www.adobe.com/jcr/granite/1.0"
-    jcr:primaryType="nt:unstructured"
-    jcr:title="Button"
-    sling:resourceType="cq/gui/components/authoring/dialog">
-    <content
-        granite:class="cmp-button__editor"
-        jcr:primaryType="nt:unstructured">
-        <items jcr:primaryType="nt:unstructured">
-            <columns
-                jcr:primaryType="nt:unstructured"
-                sling:resourceType="granite/ui/components/coral/foundation/fixedcolumns"
-                margin="{Boolean}true">
-                <items jcr:primaryType="nt:unstructured">
-                    <column
-                        jcr:primaryType="nt:unstructured"
-                        sling:resourceType="granite/ui/components/coral/foundation/container">
-                        <items jcr:primaryType="nt:unstructured">
-                            <text
-                                jcr:primaryType="nt:unstructured"
-                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
-                                fieldLabel="Text"
-                                name="./text"
-                                required="{Boolean}true"/>
-                        </items>
-                    </column>
-                </items>
-            </columns>
-        </items>
-    </content>
-</jcr:root>
-```
-
-## Project Structure
-
-```
-project/
-├── ui.frontend/
-│   ├── src/main/webpack/components/
-│   │   ├── button/
-│   │   │   ├── dialog.json          ← Define here
-│   │   │   └── button.scss
-│   │   └── hero/
-│   │       ├── dialog.json          ← Define here
-│   │       └── hero.scss
-│   └── webpack.common.js             ← Configure plugin
-└── ui.apps/
-    └── src/main/content/jcr_root/apps/mysite/components/
-        ├── button/
-        │   └── _cq_dialog/
-        │       └── .content.xml      ← Generated here
-        └── hero/
-            └── _cq_dialog/
-                └── .content.xml      ← Generated here
-```
-
-## Development
-
-### Running Tests
-
-The plugin includes a comprehensive test suite with 38 tests covering all functionality.
-
-```bash
-# Run tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Generate coverage report
-npm run test:coverage
-```
-
-**Test Coverage**: 89.8% (statements), 66.66% (branches), 93.33% (functions)
-
-> Tests: 256 passing
-
-### Building
-
-The plugin is written in vanilla JavaScript and requires no build step. Simply install dependencies:
-
-```bash
-npm install
-```
-
 ## License
 
 MIT
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## Support
-
-For issues and questions, please use the [GitHub Issues](https://github.com/yourusername/aem-dialog-generator-plugin/issues) page.

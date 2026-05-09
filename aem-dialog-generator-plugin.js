@@ -213,6 +213,9 @@ class AemDialogGeneratorPlugin {
       fields = [],
       items = [],
       layout = 'tabs',
+      extraClientlibs,
+      helpPath,
+      trackingFeature,
     } = config;
 
     let xml = '';
@@ -229,6 +232,13 @@ class AemDialogGeneratorPlugin {
         'jcr:primaryType': 'nt:unstructured',
         'jcr:title': title,
         'sling:resourceType': 'cq/gui/components/authoring/dialog',
+        ...(extraClientlibs && {
+          extraClientlibs: Array.isArray(extraClientlibs)
+            ? `[${extraClientlibs.join(',')}]`
+            : extraClientlibs,
+        }),
+        ...(helpPath && { helpPath }),
+        ...(trackingFeature && { trackingFeature }),
       },
       'open'
     );
@@ -533,6 +543,8 @@ class AemDialogGeneratorPlugin {
       showhideTarget,
       showhideClass,
       resourceType,
+      graniteData,
+      selectType,
       ...otherProps
     } = field;
 
@@ -556,8 +568,16 @@ class AemDialogGeneratorPlugin {
       return this.generateHeading(field);
     }
 
-    if (type === 'text' || type === 'alert') {
+    if (type === 'text') {
       return this.generateText(field);
+    }
+
+    if (type === 'alert') {
+      return this.generateAlert(field);
+    }
+
+    if (type === 'checkbox') {
+      return this.generateCheckbox(field);
     }
 
     if (type === 'tags') {
@@ -735,10 +755,18 @@ class AemDialogGeneratorPlugin {
     );
 
     if (validation) {
-      xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
-        validation: validation.pattern,
-        validationMessage: validation.message,
-      });
+      if (typeof validation === 'string') {
+        // Plain validator key, e.g. "html-unique-id-validator"
+        xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
+          validation,
+        });
+      } else {
+        // Object with pattern + optional message
+        xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
+          validation: validation.pattern,
+          validationMessage: validation.message,
+        });
+      }
     }
     xml = this.appendAttribute(
       xml,
@@ -764,6 +792,8 @@ class AemDialogGeneratorPlugin {
         {
           emptyOption,
           forceSelection,
+          // type="editable" makes the select a combobox
+          ...(selectType && { type: selectType }),
         },
         { allowFalsy: true }
       );
@@ -843,6 +873,8 @@ class AemDialogGeneratorPlugin {
       'minMessage',
       'maxMessage',
       'patternMessage',
+      'graniteData',
+      'selectType',
     ]);
 
     if (options && Array.isArray(options) && options.length > 0) {
@@ -851,6 +883,13 @@ class AemDialogGeneratorPlugin {
       xml += this.appendOptions(options, this.getIndentLevel(this.I.FNI));
       xml += this.closeNode(this.getIndentLevel(this.I.FN), 'items');
       
+      if (graniteData && typeof graniteData === 'object') {
+        xml += this.buildNode(this.getIndentLevel(this.I.FN), 'granite:data', {
+          'jcr:primaryType': 'nt:unstructured',
+          ...graniteData,
+        });
+      }
+
       if (cqShowHide && showhideTarget) {
         xml += this.buildNode(this.getIndentLevel(this.I.FN), 'granite:data', {
           'jcr:primaryType': 'nt:unstructured',
@@ -863,88 +902,24 @@ class AemDialogGeneratorPlugin {
         xml += this.buildDatasourceNode(this.getIndentLevel(this.I.FN), datasource);
       }
       if (renderCondition && renderCondition.type) {
-        const rcMap = {
-          simple:
-            'granite/ui/components/coral/foundation/renderconditions/simple',
-          privilege:
-            'granite/ui/components/coral/foundation/renderconditions/privilege',
-          and: 'granite/ui/components/coral/foundation/renderconditions/and',
-          or: 'granite/ui/components/coral/foundation/renderconditions/or',
-        };
-        const rcType = renderCondition.type;
-        const rcRes = rcMap[rcType] || rcMap.simple;
-        if (
-          (rcType === 'and' || rcType === 'or') &&
-          Array.isArray(renderCondition.conditions) &&
-          renderCondition.conditions.length > 0
-        ) {
-          xml += this.buildNode(
-            this.getIndentLevel(this.I.FN),
-            'granite:rendercondition',
-            { 'sling:resourceType': rcRes },
-            'open'
-          );
-          let idx = 0;
-          for (const cond of renderCondition.conditions) {
-            const childRes = rcMap[cond.type || 'simple'] || rcMap.simple;
-            const cn = `cond${++idx}`;
-            xml += this.buildNode(
-              this.getIndentLevel(this.I.FNI),
-              cn,
-              { 'sling:resourceType': childRes },
-              'none'
-            );
-            if (cond.expression) {
-              const expr = this.escapeXmlExceptSingleQuote(cond.expression);
-              xml = this.appendAttribute(
-                xml,
-                this.getIndentLevel(this.I.FNI) + 1,
-                { expression: expr },
-                { preserveSingleQuotes: true }
-              );
-            }
-            if (cond.privilege) {
-              xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FNI) + 1, {
-                privilege: cond.privilege,
-              });
-            }
-            xml = this.selfClose(xml);
-          }
-          xml += this.closeNode(this.getIndentLevel(this.I.FN), 'granite:rendercondition');
-        } else {
-          xml += this.buildNode(
-            this.getIndentLevel(this.I.FN),
-            'granite:rendercondition',
-            { 'sling:resourceType': rcRes },
-            'none'
-          );
-          if (renderCondition.expression) {
-            const expr = this.escapeXmlExceptSingleQuote(
-              renderCondition.expression
-            );
-            xml = this.appendAttribute(
-              xml,
-              this.getIndentLevel(this.I.FNI),
-              { expression: expr },
-              { preserveSingleQuotes: true }
-            );
-          }
-          if (renderCondition.privilege) {
-            xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FNI), {
-              privilege: renderCondition.privilege,
-            });
-          }
-          xml = this.selfClose(xml);
-        }
+        xml += this.buildRenderConditionNode(renderCondition, this.getIndentLevel(this.I.FN));
       }
       xml += this.closeNode(this.getIndentLevel(this.I.F), nodeName);
     } else if (
       (type === 'select' && datasource) ||
       (renderCondition && renderCondition.type) ||
-      (cqShowHide && showhideTarget)
+      (cqShowHide && showhideTarget) ||
+      (graniteData && typeof graniteData === 'object')
     ) {
       xml = this.openBlock(xml);
       
+      if (graniteData && typeof graniteData === 'object') {
+        xml += this.buildNode(this.getIndentLevel(this.I.FN), 'granite:data', {
+          'jcr:primaryType': 'nt:unstructured',
+          ...graniteData,
+        });
+      }
+
       if (cqShowHide && showhideTarget) {
         xml += this.buildNode(this.getIndentLevel(this.I.FN), 'granite:data', {
           'jcr:primaryType': 'nt:unstructured',
@@ -957,85 +932,115 @@ class AemDialogGeneratorPlugin {
         xml += this.buildDatasourceNode(this.getIndentLevel(this.I.FN), datasource);
       }
       if (renderCondition && renderCondition.type) {
-        const rcMap = {
-          simple:
-            'granite/ui/components/coral/foundation/renderconditions/simple',
-          privilege:
-            'granite/ui/components/coral/foundation/renderconditions/privilege',
-          and: 'granite/ui/components/coral/foundation/renderconditions/and',
-          or: 'granite/ui/components/coral/foundation/renderconditions/or',
-        };
-        const rcType = renderCondition.type;
-        const rcRes = rcMap[rcType] || rcMap.simple;
-        if (
-          (rcType === 'and' || rcType === 'or') &&
-          Array.isArray(renderCondition.conditions) &&
-          renderCondition.conditions.length > 0
-        ) {
-          xml += this.buildNode(
-            this.getIndentLevel(this.I.FN),
-            'granite:rendercondition',
-            { 'sling:resourceType': rcRes },
-            'open'
-          );
-          let idx = 0;
-          for (const cond of renderCondition.conditions) {
-            const childRes = rcMap[cond.type || 'simple'] || rcMap.simple;
-            const cn = `cond${++idx}`;
-            xml += this.buildNode(
-              this.getIndentLevel(this.I.FNI),
-              cn,
-              { 'sling:resourceType': childRes },
-              'none'
-            );
-            if (cond.expression) {
-              const expr = this.escapeXmlExceptSingleQuote(cond.expression);
-              xml = this.appendAttribute(
-                xml,
-                this.getIndentLevel(this.I.FNI) + 1,
-                { expression: expr },
-                { preserveSingleQuotes: true }
-              );
-            }
-            if (cond.privilege) {
-              xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FNI) + 1, {
-                privilege: cond.privilege,
-              });
-            }
-            xml = this.selfClose(xml);
-          }
-          xml += this.closeNode(this.getIndentLevel(this.I.FN), 'granite:rendercondition');
-        } else {
-          xml += this.buildNode(
-            this.getIndentLevel(this.I.FN),
-            'granite:rendercondition',
-            { 'sling:resourceType': rcRes },
-            'none'
-          );
-          if (renderCondition.expression) {
-            const expr = this.escapeXmlExceptSingleQuote(
-              renderCondition.expression
-            );
-            xml = this.appendAttribute(
-              xml,
-              this.getIndentLevel(this.I.FNI),
-              { expression: expr },
-              { preserveSingleQuotes: true }
-            );
-          }
-          if (renderCondition.privilege) {
-            xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FNI), {
-              privilege: renderCondition.privilege,
-            });
-          }
-          xml = this.selfClose(xml);
-        }
+        xml += this.buildRenderConditionNode(renderCondition, this.getIndentLevel(this.I.FN));
       }
       xml += this.closeNode(this.getIndentLevel(this.I.F), nodeName);
     } else {
       xml = this.selfClose(xml);
     }
 
+    return xml;
+  }
+
+  /**
+   * Builds a <granite:rendercondition .../> node.
+   * renderCondition shape:
+   *   - type: 'simple' | 'privilege' | 'feature' | 'and' | 'or' | '<full-resource-type>'
+   *   - expression: EL string (for simple)
+   *   - privilege: string (for privilege)
+   *   - feature: string (for feature)
+   *   - resourceType: explicit full resource type (overrides type mapping)
+   *   - conditions: array of condition objects (for and/or)
+   *   - ...any additional props passed straight to the node
+   */
+  buildRenderConditionNode(renderCondition, level) {
+    const CORAL_RC = 'granite/ui/components/coral/foundation/renderconditions';
+    const LEGACY_RC = 'granite/ui/components/foundation/renderconditions';
+
+    const rcMap = {
+      simple: `${CORAL_RC}/simple`,
+      privilege: `${CORAL_RC}/privilege`,
+      feature: `${CORAL_RC}/feature`,
+      and: `${CORAL_RC}/and`,
+      or: `${CORAL_RC}/or`,
+      // legacy paths
+      'legacy:simple': `${LEGACY_RC}/simple`,
+    };
+
+    const rcType = renderCondition.type;
+    // Allow a full resource type to be passed directly (e.g. 'core/wcm/components/...')
+    const rcRes =
+      renderCondition.resourceType ||
+      rcMap[rcType] ||
+      (rcType && rcType.includes('/') ? rcType : rcMap.simple);
+
+    const {
+      type: _type, // eslint-disable-line no-unused-vars
+      resourceType: _rt, // eslint-disable-line no-unused-vars
+      expression,
+      privilege,
+      feature,
+      conditions,
+      ...extraRcProps
+    } = renderCondition;
+
+    const childLevel = level + 1;
+
+    if (
+      (rcType === 'and' || rcType === 'or') &&
+      Array.isArray(conditions) &&
+      conditions.length > 0
+    ) {
+      let xml = this.buildNode(level, 'granite:rendercondition', { 'sling:resourceType': rcRes }, 'open');
+      let idx = 0;
+      for (const cond of conditions) {
+        const childRes =
+          cond.resourceType ||
+          rcMap[cond.type] ||
+          (cond.type && cond.type.includes('/') ? cond.type : rcMap.simple);
+        const cn = `cond${++idx}`;
+        xml += this.buildNode(childLevel, cn, { 'sling:resourceType': childRes }, 'none');
+        if (cond.expression) {
+          const expr = this.escapeXmlExceptSingleQuote(cond.expression);
+          xml = this.appendAttribute(xml, childLevel + 1, { expression: expr }, { preserveSingleQuotes: true });
+        }
+        if (cond.privilege) {
+          xml = this.appendAttribute(xml, childLevel + 1, { privilege: cond.privilege });
+        }
+        if (cond.feature) {
+          xml = this.appendAttribute(xml, childLevel + 1, { feature: cond.feature });
+        }
+        // Pass any other cond props
+        for (const [k, v] of Object.entries(cond)) {
+          if (!['type', 'resourceType', 'expression', 'privilege', 'feature'].includes(k) && v !== undefined) {
+            xml = this.appendAttribute(xml, childLevel + 1, { [k]: String(v) });
+          }
+        }
+        xml = this.selfClose(xml);
+      }
+      xml += this.closeNode(level, 'granite:rendercondition');
+      return xml;
+    }
+
+    // Single condition node
+    let xml = this.buildNode(level, 'granite:rendercondition', { 'sling:resourceType': rcRes }, 'none');
+    if (expression) {
+      const expr = this.escapeXmlExceptSingleQuote(expression);
+      xml = this.appendAttribute(xml, childLevel, { expression: expr }, { preserveSingleQuotes: true });
+    }
+    if (privilege) {
+      xml = this.appendAttribute(xml, childLevel, { privilege });
+    }
+    if (feature) {
+      xml = this.appendAttribute(xml, childLevel, { feature });
+    }
+    // Pass any extra props (e.g. componentPath, displayMode, etc.)
+    for (const [k, v] of Object.entries(extraRcProps)) {
+      if (v !== undefined) {
+        xml = this.appendAttribute(xml, childLevel, { [k]: String(v) });
+      }
+    }
+    xml = this.selfClose(xml);
     return xml;
   }
 
@@ -1123,6 +1128,9 @@ class AemDialogGeneratorPlugin {
       showhideClass,
       showhidetargetvalue,
       collapsible = false,
+      datasource,
+      renderCondition,
+      graniteData,
       ...otherProps
     } = field;
 
@@ -1181,6 +1189,9 @@ class AemDialogGeneratorPlugin {
       'showhideClass',
       'showhidetargetvalue',
       'collapsible',
+      'datasource',
+      'renderCondition',
+      'graniteData',
     ]);
 
     xml = this.openBlock(xml);
@@ -1191,18 +1202,37 @@ class AemDialogGeneratorPlugin {
         'showhidetargetvalue': showhidetargetvalue,
       });
     }
-    
-    xml += this.buildNode(this.getIndentLevel(this.I.FN), 'items', {}, 'open');
 
-    xml += this.withAdjustedIndentation(0, 1, () => {
-      let nestedXml = '';
-      for (const subField of nestedFields) {
-        nestedXml += this.generateField(subField);
-      }
-      return nestedXml;
-    });
+    if (graniteData && typeof graniteData === 'object') {
+      xml += this.buildNode(this.getIndentLevel(this.I.FN), 'granite:data', {
+        'jcr:primaryType': 'nt:unstructured',
+        ...graniteData,
+      });
+    }
 
-    xml += this.closeNode(this.getIndentLevel(this.I.FN), 'items');
+    // A fieldset/container can be driven entirely by a datasource (no static items needed)
+    if (datasource) {
+      xml += this.buildDatasourceNode(this.getIndentLevel(this.I.FN), datasource);
+    }
+
+    if (renderCondition && renderCondition.type) {
+      xml += this.buildRenderConditionNode(renderCondition, this.getIndentLevel(this.I.FN));
+    }
+
+    if (nestedFields.length > 0) {
+      xml += this.buildNode(this.getIndentLevel(this.I.FN), 'items', {}, 'open');
+
+      xml += this.withAdjustedIndentation(0, 1, () => {
+        let nestedXml = '';
+        for (const subField of nestedFields) {
+          nestedXml += this.generateField(subField);
+        }
+        return nestedXml;
+      });
+
+      xml += this.closeNode(this.getIndentLevel(this.I.FN), 'items');
+    }
+
     xml += this.closeNode(this.getIndentLevel(this.I.F), nodeName);
 
     return xml;
@@ -1364,6 +1394,221 @@ class AemDialogGeneratorPlugin {
     return xml;
   }
 
+  generateAlert(field) {
+    const { name, text, variant = 'info', size = 'S', ...otherProps } = field;
+
+    const nodeName = name || this.generateDeterministicNodeName('alert', { text, variant, size, ...otherProps });
+
+    let xml = this.buildNode(
+      this.getIndentLevel(this.I.F),
+      nodeName,
+      { 'sling:resourceType': 'granite/ui/components/coral/foundation/alert' },
+      'none'
+    );
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
+      text,
+      variant,
+      size,
+    });
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
+      'type',
+      'text',
+      'variant',
+      'size',
+    ]);
+
+    xml = this.selfClose(xml);
+
+    return xml;
+  }
+
+  generateCheckbox(field) {
+    const {
+      name,
+      label,
+      description,
+      required = false,
+      disabled = false,
+      readOnly = false,
+      defaultValue,
+      checked,
+      uncheckedValue,
+      className,
+      wrapperClass,
+      graniteId,
+      trackingFeature,
+      trackingElement,
+      renderHidden = false,
+      orderBefore,
+      typeHint,
+      showIf,
+      hideIf,
+      data,
+      renderCondition,
+      cqShowHide = false,
+      showhideTarget,
+      showhideClass,
+      margin,
+      width,
+      ...otherProps
+    } = field;
+
+    const fieldName = this.getFieldName(name);
+    const nodeName = this.sanitizeNodeName(fieldName);
+
+    let xml = this.buildNode(
+      this.getIndentLevel(this.I.F),
+      nodeName,
+      { 'sling:resourceType': 'granite/ui/components/coral/foundation/form/checkbox' },
+      'none'
+    );
+
+    let graniteClasses = [];
+    if (cqShowHide) {
+      graniteClasses.push('cq-dialog-checkbox-showhide');
+    }
+    if (showhideClass) {
+      graniteClasses.push('hide', showhideClass);
+    }
+    if (className) {
+      const customClasses = typeof className === 'string' ? className.split(' ') : className;
+      if (Array.isArray(customClasses)) graniteClasses.push(...customClasses);
+      else graniteClasses.push(customClasses);
+    }
+    if (wrapperClass) {
+      const wrapperClasses = typeof wrapperClass === 'string' ? wrapperClass.split(' ') : wrapperClass;
+      if (Array.isArray(wrapperClasses)) graniteClasses.push(...wrapperClasses);
+      else graniteClasses.push(wrapperClasses);
+    }
+
+    if (graniteClasses.length > 0) {
+      xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
+        'granite:class': graniteClasses.join(' '),
+      });
+    }
+
+    // Checkbox uses "text" as label (not fieldLabel) and "name" on the node
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
+      text: label,
+      fieldDescription: description,
+      name: fieldName,
+      typeHint,
+      'sling:orderBefore': orderBefore,
+      'granite:id': graniteId,
+      trackingFeature,
+      trackingElement,
+      margin,
+      width,
+    });
+
+    if (showIf && showIf.field && showIf.value !== undefined) {
+      xml = this.appendAttribute(
+        xml,
+        this.getIndentLevel(this.I.FA),
+        { 'granite:hide': `\${!${showIf.field} || ${showIf.field} != '${showIf.value}'}` },
+        { preserveSingleQuotes: true }
+      );
+    } else if (hideIf && hideIf.field && hideIf.value !== undefined) {
+      xml = this.appendAttribute(
+        xml,
+        this.getIndentLevel(this.I.FA),
+        { 'granite:hide': `\${${hideIf.field} && ${hideIf.field} == '${hideIf.value}'}` },
+        { preserveSingleQuotes: true }
+      );
+    }
+
+    // "value" is the checked value (what is stored when checked)
+    // "checked" controls the default checked state — can be a boolean or an EL expression string
+    // "uncheckedValue" is what is stored when unchecked
+    let checkedAttr;
+    if (checked === true) {
+      checkedAttr = '{Boolean}true';
+    } else if (checked === false) {
+      checkedAttr = '{Boolean}false';
+    } else {
+      checkedAttr = checked; // pass EL expressions like "${not empty cqDesign.autoplay}" as-is
+    }
+
+    xml = this.appendAttribute(xml, this.getIndentLevel(this.I.FA), {
+      value: defaultValue === undefined ? '{Boolean}true' : String(defaultValue),
+      uncheckedValue: uncheckedValue === undefined ? 'false' : String(uncheckedValue),
+      ...(checkedAttr !== undefined && { checked: checkedAttr }),
+    });
+
+    xml = this.appendAttribute(
+      xml,
+      this.getIndentLevel(this.I.FA),
+      { required, disabled, readOnly, renderHidden },
+      { isBoolean: true }
+    );
+
+    xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
+      'type',
+      'label',
+      'description',
+      'required',
+      'disabled',
+      'readOnly',
+      'defaultValue',
+      'checked',
+      'uncheckedValue',
+      'className',
+      'wrapperClass',
+      'graniteId',
+      'trackingFeature',
+      'trackingElement',
+      'renderHidden',
+      'orderBefore',
+      'typeHint',
+      'showIf',
+      'hideIf',
+      'data',
+      'renderCondition',
+      'cqShowHide',
+      'showhideTarget',
+      'showhideClass',
+      'margin',
+      'width',
+    ]);
+
+    const needsBlock =
+      (cqShowHide && showhideTarget) ||
+      (renderCondition && renderCondition.type) ||
+      (data && typeof data === 'object');
+
+    if (needsBlock) {
+      xml = this.openBlock(xml);
+
+      if (data && typeof data === 'object') {
+        const dataAttrs = {};
+        for (const [dk, dv] of Object.entries(data)) {
+          if (dv !== undefined && dv !== null) {
+            dataAttrs['jcr:primaryType'] = 'nt:unstructured';
+            dataAttrs[dk] = dv.toString();
+          }
+        }
+        xml += this.buildNode(this.getIndentLevel(this.I.FN), 'granite:data', dataAttrs);
+      }
+
+      if (cqShowHide && showhideTarget) {
+        xml += this.buildNode(this.getIndentLevel(this.I.FN), 'granite:data', {
+          'jcr:primaryType': 'nt:unstructured',
+          'cq-dialog-checkbox-showhide-target': showhideTarget,
+        });
+      }
+
+      if (renderCondition && renderCondition.type) {
+        xml += this.buildRenderConditionNode(renderCondition, this.getIndentLevel(this.I.FN));
+      }
+
+      xml += this.closeNode(this.getIndentLevel(this.I.F), nodeName);
+    } else {
+      xml = this.selfClose(xml);
+    }
+
+    return xml;
+  }
+
   generateTags(field) {
     const {
       name,
@@ -1461,7 +1706,7 @@ class AemDialogGeneratorPlugin {
       uploadUrl,
       fileNameParameter,
       fileReferenceParameter,
-      sizeLimit: sizeLimit !== undefined ? `{Long}${sizeLimit}` : undefined,
+      sizeLimit: sizeLimit === undefined ? undefined : `{Long}${sizeLimit}`,
       typeHint,
     });
 
@@ -1978,7 +2223,7 @@ class AemDialogGeneratorPlugin {
       fieldDescription: description,
       height,
       width,
-      maxlength: maxlength !== undefined ? `{Long}${maxlength}` : undefined,
+      maxlength: maxlength === undefined ? undefined : `{Long}${maxlength}`,
     });
 
     xml = this.appendAttribute(
@@ -2181,8 +2426,8 @@ class AemDialogGeneratorPlugin {
       fieldLabel: label,
       fieldDescription: description,
       deleteHint,
-      maxItems: maxItems !== undefined ? `{Long}${maxItems}` : undefined,
-      minItems: minItems !== undefined ? `{Long}${minItems}` : undefined,
+      maxItems: maxItems === undefined ? undefined : `{Long}${maxItems}`,
+      minItems: minItems === undefined ? undefined : `{Long}${minItems}`,
       addItemLabel,
       maxItemsMessage,
       minItemsMessage,
@@ -2536,8 +2781,18 @@ class AemDialogGeneratorPlugin {
         text: opt.text || opt.value,
         value: opt.value,
         ...(opt.checked && { checked: '{Boolean}true' }),
+        ...(opt.selected && { selected: '{Boolean}true' }),
       };
-      xml += this.buildNode(baseIndent, optName, attributes, 'self');
+      let optXml = this.buildNode(baseIndent, optName, attributes, 'none');
+      if (opt.hide !== undefined) {
+        // granite:hide on option — EL expression or boolean
+        const hideVal =
+          typeof opt.hide === 'boolean'
+            ? `{Boolean}${opt.hide}`
+            : opt.hide;
+        optXml = this.appendAttribute(optXml, baseIndent + 1, { 'granite:hide': hideVal });
+      }
+      xml += this.selfClose(optXml);
     }
     return xml;
   }
@@ -2702,6 +2957,9 @@ class AemDialogGeneratorPlugin {
       fields = [],
       items = [],
       layout = 'tabs',
+      extraClientlibs,
+      helpPath,
+      trackingFeature,
     } = config;
 
     let xml = '';
@@ -2718,6 +2976,13 @@ class AemDialogGeneratorPlugin {
         'jcr:primaryType': 'nt:unstructured',
         'jcr:title': title,
         'sling:resourceType': 'cq/gui/components/authoring/dialog',
+        ...(extraClientlibs && {
+          extraClientlibs: Array.isArray(extraClientlibs)
+            ? `[${extraClientlibs.join(',')}]`
+            : extraClientlibs,
+        }),
+        ...(helpPath && { helpPath }),
+        ...(trackingFeature && { trackingFeature }),
       },
       'open'
     );
