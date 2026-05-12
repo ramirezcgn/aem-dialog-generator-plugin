@@ -3111,12 +3111,8 @@ describe('AemDialogGeneratorPlugin', () => {
 
         const xml = plugin.generateRTE(rte);
 
-        expect(xml).toContain(
-          'sling:resourceType="cq/gui/components/authoring/dialog/richtext"'
-        );
-        expect(xml).toContain('fieldLabel="Content"');
+        expect(xml).toContain('features="bold,italic,underline,strikethrough"');
         expect(xml).toContain('<rtePlugins jcr:primaryType="nt:unstructured">');
-        expect(xml).toContain('features="bold,italic,underline"');
       });
 
       test('should generate RTE with specific features', () => {
@@ -3406,36 +3402,618 @@ describe('AemDialogGeneratorPlugin', () => {
     });
 
     describe('generateRTE', () => {
-      test('should generate RTE with default features', () => {
-        const rte = {
-          name: './text',
-          label: 'Content',
-          features: ['*'],
-        };
+      test('should generate correct resource type and field attributes', () => {
+        const xml = plugin.generateRTE({ name: './text', label: 'Content' });
 
-        const xml = plugin.generateRTE(rte);
-
-        expect(xml).toContain(
-          'sling:resourceType="cq/gui/components/authoring/dialog/richtext"'
-        );
-        expect(xml).toContain('<rtePlugins jcr:primaryType="nt:unstructured">');
-        expect(xml).toContain('<format');
-        expect(xml).toContain('features="bold,italic,underline"');
+        expect(xml).toContain('sling:resourceType="cq/gui/components/authoring/dialog/richtext"');
+        expect(xml).toContain('fieldLabel="Content"');
+        expect(xml).toContain('name="./text"');
       });
 
-      test('should generate RTE with specific features', () => {
-        const rte = {
-          name: './text',
-          label: 'Content',
-          features: ['bold', 'italic'],
-        };
+      test('should generate optional attributes when provided', () => {
+        const xml = plugin.generateRTE({
+          name: './body',
+          label: 'Body',
+          required: true,
+          disabled: true,
+          readOnly: true,
+          useFixedInlineToolbar: true,
+          height: '300px',
+          width: '100%',
+          maxlength: 5000,
+        });
 
-        const xml = plugin.generateRTE(rte);
+        expect(xml).toContain('required="{Boolean}true"');
+        expect(xml).toContain('disabled="{Boolean}true"');
+        expect(xml).toContain('readOnly="{Boolean}true"');
+        expect(xml).toContain('useFixedInlineToolbar="{Boolean}true"');
+        expect(xml).toContain('height="300px"');
+        expect(xml).toContain('width="100%"');
+        expect(xml).toContain('maxlength="{Long}5000"');
+      });
 
-        expect(xml).toContain(
-          'sling:resourceType="cq/gui/components/authoring/dialog/richtext"'
-        );
-        expect(xml).toContain('<rtePlugins jcr:primaryType="nt:unstructured">');
+      describe('features: ["*"] — all features', () => {
+        let xml;
+        beforeEach(() => {
+          xml = plugin.generateRTE({ name: './text', label: 'Content', features: ['*'] });
+        });
+
+        test('should generate all default rtePlugins', () => {
+          expect(xml).toContain('<rtePlugins jcr:primaryType="nt:unstructured">');
+          expect(xml).toContain('features="bold,italic,underline,strikethrough"');
+          expect(xml).toContain('features="justifyleft,justifycenter,justifyright,justifyblock"');
+          expect(xml).toContain('features="modifylink,unlink,anchor"');
+        });
+
+        test('should generate misctools without specialCharsConfig by default', () => {
+          expect(xml).toContain('<misctools');
+          expect(xml).not.toContain('<specialCharsConfig');
+          expect(xml).not.toContain('<chars');
+        });
+
+        test('should generate paraformat with all format nodes', () => {
+          expect(xml).toContain('<paraformat');
+          expect(xml).toContain('<formats');
+          expect(xml).toContain('description="Paragraph"');
+          expect(xml).toContain('description="Highlight"');
+          expect(xml).toContain('description="Heading 1"');
+          expect(xml).toContain('description="Heading 2"');
+          expect(xml).toContain('description="Heading 3"');
+          expect(xml).toContain('description="Heading 4"');
+          expect(xml).toContain('description="Heading 5"');
+          expect(xml).toContain('description="Heading 6"');
+          expect(xml).toContain('description="Quote"');
+          expect(xml).toContain('description="Preformatted"');
+        });
+
+        test('should generate table plugin with hiddenHeaderConfig', () => {
+          expect(xml).toContain('<table');
+          expect(xml).toContain('<hiddenHeaderConfig');
+          expect(xml).toContain('hiddenHeaderClassName="cq-wcm-foundation-aria-visuallyhidden"');
+          expect(xml).toContain('hiddenHeaderEditingCSS="cq-RichText-hiddenHeader--editing"');
+        });
+
+        test('should generate remaining plugins', () => {
+          expect(xml).toContain('<tracklinks');
+          expect(xml).toContain('<subsuperscript');
+          expect(xml).toContain('<image');
+        });
+
+        test('should generate styles plugin with cq:WidgetCollection', () => {
+          expect(xml).toContain('<styles');
+          expect(xml).toContain('jcr:primaryType="cq:WidgetCollection"');
+        });
+
+        test('should generate uiSettings with inline and dialogFullScreen', () => {
+          expect(xml).toContain('<uiSettings jcr:primaryType="nt:unstructured">');
+          expect(xml).toContain('<cui jcr:primaryType="nt:unstructured">');
+          expect(xml).toContain('<inline');
+          expect(xml).toContain('<dialogFullScreen');
+        });
+
+        test('should generate inline toolbar with all features', () => {
+          expect(xml).toContain('format#bold');
+          expect(xml).toContain('format#strikethrough');
+          expect(xml).toContain('#justify');
+          expect(xml).toContain('#lists');
+          expect(xml).toContain('links#modifylink');
+          expect(xml).toContain('links#anchor');
+          expect(xml).toContain('#paraformat');
+          expect(xml).toContain('table#createoredit');
+          expect(xml).toContain('#styles');
+          expect(xml).toContain('misctools#sourceedit');
+          expect(xml).toContain('fullscreen#start');
+          expect(xml).toContain('undo#undo');
+          expect(xml).toContain('findreplace#find');
+        });
+
+        test('should generate inline popovers as child node', () => {
+          expect(xml).toContain('<popovers jcr:primaryType="nt:unstructured">');
+          expect(xml).toContain('ref="justify"');
+          expect(xml).toContain('items="[justify#justifyleft,justify#justifycenter,justify#justifyright,justify#justifyblock]"');
+          expect(xml).toContain('ref="lists"');
+          expect(xml).toContain('items="[lists#unordered,lists#ordered,lists#outdent,lists#indent]"');
+          expect(xml).toContain('ref="paraformat"');
+          expect(xml).toContain('items="paraformat:getFormats:paraformat-pulldown"');
+          expect(xml).toContain('ref="styles"');
+          expect(xml).toContain('items="styles:getStyles:styles-pulldown"');
+        });
+
+        test('should generate dialogFullScreen toolbar', () => {
+          expect(xml).toMatch(/<dialogFullScreen[^>]*toolbar="\[format#bold,format#italic,format#underline,/);
+          expect(xml).toContain('justify#justifyleft,justify#justifycenter,justify#justifyright');
+          expect(xml).toContain('lists#unordered,lists#ordered,lists#outdent,lists#indent');
+          expect(xml).toContain('misctools#sourceedit');
+        });
+
+        test('should generate dialogFullScreen popovers with paraformat and styles', () => {
+          const fsSection = xml.slice(xml.indexOf('<dialogFullScreen'));
+          expect(fsSection).toMatch(/<paraformat[^/]*ref="paraformat"/);
+          expect(fsSection).toMatch(/<styles[^/]*ref="styles"/);
+        });
+
+        test('should generate tableEditOptions', () => {
+          expect(xml).toContain('<tableEditOptions');
+          expect(xml).toContain('table#insertcolumn-before');
+          expect(xml).toContain('table#exitTableEditing');
+        });
+      });
+
+      describe('features: ["bold", "italic", "underline", "links", "lists"]', () => {
+        let xml;
+        beforeEach(() => {
+          xml = plugin.generateRTE({
+            name: './answer',
+            label: 'Answer',
+            useFixedInlineToolbar: true,
+            features: ['bold', 'italic', 'underline', 'links', 'lists'],
+          });
+        });
+
+        test('should combine bold/italic/underline into a single format node', () => {
+          expect(xml).toContain('features="bold,italic,underline"');
+          // Only one <format plugin node expected (not <formats inside paraformat)
+          expect((xml.match(/<format\n/g) || []).length).toBe(1);
+        });
+
+        test('should generate links and lists plugins', () => {
+          expect(xml).toContain('<links');
+          expect(xml).toContain('features="modifylink,unlink"');
+          expect(xml).toContain('<lists');
+        });
+
+        test('should not generate justify plugin', () => {
+          expect(xml).not.toContain('<justify');
+        });
+
+        test('should not generate misctools, table, styles, paraformat plugins', () => {
+          const pluginsSection = xml.slice(xml.indexOf('<rtePlugins'), xml.indexOf('</rtePlugins>'));
+          expect(pluginsSection).not.toContain('<misctools');
+          expect(pluginsSection).not.toContain('<table');
+          expect(pluginsSection).not.toContain('<tracklinks');
+          expect(pluginsSection).not.toContain('<subsuperscript');
+          expect(pluginsSection).not.toContain('<image');
+        });
+
+        test('should generate inline toolbar without justify or table', () => {
+          expect(xml).toMatch(/<inline[^>]*toolbar="\[format#bold,format#italic,format#underline,#lists,links#modifylink,links#unlink,#paraformat\]"/);
+          expect(xml).not.toContain('table#createoredit');
+          expect(xml).not.toContain('#justify');
+        });
+
+        test('should generate inline popovers without justify and styles', () => {
+          const inlineSection = xml.slice(xml.indexOf('<inline'), xml.indexOf('</inline>'));
+          expect(inlineSection).toContain('<popovers');
+          expect(inlineSection).not.toContain('ref="justify"');
+          expect(inlineSection).not.toContain('ref="styles"');
+          expect(inlineSection).toContain('ref="lists"');
+          expect(inlineSection).toContain('ref="paraformat"');
+        });
+
+        test('should generate dialogFullScreen toolbar without table and image', () => {
+          expect(xml).toMatch(/<dialogFullScreen[^>]*toolbar="\[format#bold,format#italic,format#underline,lists#unordered,lists#ordered,lists#outdent,lists#indent,links#modifylink,links#unlink,#paraformat\]"/);
+        });
+
+        test('should generate dialogFullScreen popovers with paraformat only', () => {
+          const fsStart = xml.indexOf('<dialogFullScreen');
+          const fsEnd = xml.indexOf('</dialogFullScreen>');
+          const fsSection = xml.slice(fsStart, fsEnd);
+          expect(fsSection).toContain('ref="paraformat"');
+          expect(fsSection).not.toContain('ref="styles"');
+        });
+      });
+
+      describe('feature grouping edge cases', () => {
+        test('should combine only bold and italic into single format node', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['bold', 'italic'] });
+          expect(xml).toContain('features="bold,italic"');
+          expect((xml.match(/<format\n/g) || []).length).toBe(1);
+        });
+
+        test('should not generate format node when no text formatting features', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['links'] });
+          expect(xml).not.toContain('<format\n');
+        });
+
+        test('should not generate links node when links not in features', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['bold'] });
+          expect(xml).not.toContain('<links');
+        });
+
+        test('should not generate lists node when lists not in features', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['bold'] });
+          expect(xml).not.toContain('<lists');
+        });
+
+        test('should default to all features when features is not specified', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T' });
+          expect(xml).toContain('<misctools');
+          expect(xml).toContain('<table');
+          expect(xml).toContain('table#createoredit');
+        });
+      });
+
+      describe('named feature: justifyblock', () => {
+        test('should include justifyblock in justify plugin features', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['justifyblock'] });
+          expect(xml).toContain('features="justifyleft,justifycenter,justifyright,justifyblock"');
+        });
+
+        test('should combine justify and justifyblock when both provided', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['justify', 'justifyblock'] });
+          expect(xml).toContain('features="justifyleft,justifycenter,justifyright,justifyblock"');
+          // only one justify plugin node (not duplicated)
+          expect((xml.match(/features="justifyleft,/g) || []).length).toBe(1);
+        });
+
+        test('justify without justifyblock should not include justifyblock in features', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['justify'] });
+          expect(xml).toContain('features="justifyleft,justifycenter,justifyright"');
+          expect(xml).not.toContain('justifyblock');
+        });
+
+        test('should add justify#justifyblock to fullscreen toolbar', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['justifyblock'] });
+          expect(xml).toContain('justify#justifyblock');
+        });
+
+        test('should add justify#justifyblock to inline popover items', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['justifyblock'] });
+          expect(xml).toContain('justify#justifyblock');
+        });
+
+        test('justifyblock alone still triggers #justify in inline toolbar', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['justifyblock'] });
+          expect(xml).toContain('#justify');
+        });
+      });
+
+      describe('specialChars option', () => {
+        test('should use custom special chars when provided', () => {
+          const xml = plugin.generateRTE({
+            name: './t',
+            label: 'T',
+            features: ['misctools'],
+            specialChars: [
+              { name: 'bullet', entity: '&bull;' },
+              { name: 'mdash', entity: '&mdash;' },
+            ],
+          });
+          expect(xml).toContain('name="bullet"');
+          expect(xml).toContain('name="mdash"');
+          expect(xml).not.toContain('name="copyright"');
+        });
+
+        test('should not generate specialCharsConfig when specialChars not specified', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['misctools'] });
+          expect(xml).not.toContain('<specialCharsConfig');
+          expect(xml).not.toContain('name="copyright"');
+        });
+
+        test('should use entity values from custom specialChars', () => {
+          const xml = plugin.generateRTE({
+            name: './t',
+            label: 'T',
+            features: ['misctools'],
+            specialChars: [{ name: 'bullet', entity: '&bull;' }],
+          });
+          expect(xml).toContain('entity="&amp;bull;"');
+        });
+      });
+
+      describe('named feature: strikethrough', () => {
+        test('should include strikethrough in format plugin features', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['strikethrough'] });
+          expect(xml).toContain('features="strikethrough"');
+        });
+
+        test('should combine strikethrough with other format features', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['bold', 'italic', 'strikethrough'] });
+          expect(xml).toContain('features="bold,italic,strikethrough"');
+          expect((xml.match(/<format\n/g) || []).length).toBe(1);
+        });
+
+        test('should add format#strikethrough to inline and fullscreen toolbars', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['strikethrough'] });
+          expect(xml).toContain('format#strikethrough');
+        });
+      });
+
+      describe('named feature: anchor', () => {
+        test('should generate links plugin with modifylink,unlink,anchor features', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['anchor'] });
+          expect(xml).toContain('features="modifylink,unlink,anchor"');
+        });
+
+        test('should add links#anchor to inline toolbar', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['anchor'] });
+          expect(xml).toContain('links#anchor');
+        });
+
+        test('links + anchor together should still produce one links plugin node with anchor', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['links', 'anchor'] });
+          expect(xml).toContain('features="modifylink,unlink,anchor"');
+          expect((xml.match(/<links\n/g) || []).length).toBe(1);
+        });
+
+        test('links without anchor should use modifylink,unlink only', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['links'] });
+          expect(xml).toContain('features="modifylink,unlink"');
+          expect(xml).not.toContain('links#anchor');
+        });
+      });
+
+      describe('named feature: undo', () => {
+        test('should generate undo plugin', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['undo'] });
+          const pluginsSection = xml.slice(xml.indexOf('<rtePlugins'), xml.indexOf('</rtePlugins>'));
+          expect(pluginsSection).toContain('<undo');
+        });
+
+        test('should add undo#undo and undo#redo to inline and fullscreen toolbars', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['undo'] });
+          expect(xml).toContain('undo#undo');
+          expect(xml).toContain('undo#redo');
+        });
+
+        test('should not add undo when not in features', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['bold'] });
+          const pluginsSection = xml.slice(xml.indexOf('<rtePlugins'), xml.indexOf('</rtePlugins>'));
+          expect(pluginsSection).not.toContain('<undo');
+          expect(xml).not.toContain('undo#undo');
+        });
+      });
+
+      describe('named feature: findreplace', () => {
+        test('should generate findreplace plugin', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['findreplace'] });
+          const pluginsSection = xml.slice(xml.indexOf('<rtePlugins'), xml.indexOf('</rtePlugins>'));
+          expect(pluginsSection).toContain('<findreplace');
+        });
+
+        test('should add findreplace#find to inline and findreplace#find,replace to fullscreen', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['findreplace'] });
+          expect(xml).toContain('findreplace#find');
+          expect(xml).toContain('findreplace#replace');
+        });
+
+        test('should not add findreplace when not in features', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['bold'] });
+          expect(xml).not.toContain('findreplace#find');
+        });
+      });
+
+      describe('named feature: fullscreen', () => {
+        test('should add fullscreen#start to inline toolbar', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['fullscreen'] });
+          expect(xml).toContain('fullscreen#start');
+        });
+
+        test('should not add fullscreen#start when not in features', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['bold'] });
+          expect(xml).not.toContain('fullscreen#start');
+        });
+      });
+
+      describe('paraformats option', () => {
+        test('should use custom paragraph formats when provided', () => {
+          const xml = plugin.generateRTE({
+            name: './t',
+            label: 'T',
+            paraformats: [
+              { tag: 'p', description: 'Paragraph' },
+              { tag: 'h2', description: 'Heading 2' },
+              { tag: 'h3', description: 'Heading 3' },
+            ],
+          });
+          expect(xml).toContain('description="Paragraph"');
+          expect(xml).toContain('description="Heading 2"');
+          expect(xml).toContain('description="Heading 3"');
+          expect(xml).not.toContain('description="Heading 1"');
+          expect(xml).not.toContain('description="Heading 4"');
+        });
+
+        test('should use name property as node name when provided in paraformats', () => {
+          const xml = plugin.generateRTE({
+            name: './t',
+            label: 'T',
+            paraformats: [{ name: 'my_p', tag: 'p', description: 'Paragraph' }],
+          });
+          expect(xml).toContain('description="Paragraph"');
+          expect(xml).toContain('tag="p"');
+        });
+
+        test('should use default paraformats when paraformats not specified', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T' });
+          expect(xml).toContain('description="Paragraph"');
+          expect(xml).toContain('description="Heading 1"');
+          expect(xml).toContain('description="Heading 6"');
+          expect(xml).toContain('description="Quote"');
+          expect(xml).toContain('description="Preformatted"');
+        });
+      });
+
+      describe('named feature: table', () => {
+        let xml;
+        beforeEach(() => {
+          xml = plugin.generateRTE({ name: './t', label: 'T', features: ['table'] });
+        });
+
+        test('should generate table plugin with hiddenHeaderConfig', () => {
+          expect(xml).toContain('<table');
+          expect(xml).toContain('<hiddenHeaderConfig');
+          expect(xml).toContain('hiddenHeaderClassName="cq-wcm-foundation-aria-visuallyhidden"');
+        });
+
+        test('should add table#createoredit to inline toolbar', () => {
+          expect(xml).toContain('table#createoredit');
+        });
+
+        test('should generate tableEditOptions', () => {
+          expect(xml).toContain('<tableEditOptions');
+          expect(xml).toContain('table#insertcolumn-before');
+          expect(xml).toContain('table#exitTableEditing');
+        });
+
+        test('should not generate tableEditOptions when table not in features', () => {
+          const noTable = plugin.generateRTE({ name: './t', label: 'T', features: ['bold'] });
+          expect(noTable).not.toContain('<tableEditOptions');
+          expect(noTable).not.toContain('table#insertcolumn-before');
+        });
+      });
+
+      describe('named feature: image', () => {
+        let xml;
+        beforeEach(() => {
+          xml = plugin.generateRTE({ name: './t', label: 'T', features: ['image'] });
+        });
+
+        test('should generate image plugin', () => {
+          const pluginsSection = xml.slice(xml.indexOf('<rtePlugins'), xml.indexOf('</rtePlugins>'));
+          expect(pluginsSection).toContain('<image');
+        });
+
+        test('should add image toolbar items to dialogFullScreen', () => {
+          expect(xml).toContain('image#imageProps');
+          expect(xml).toContain('#image');
+        });
+
+        test('should not add image items when image not in features', () => {
+          const noImage = plugin.generateRTE({ name: './t', label: 'T', features: ['bold'] });
+          expect(noImage).not.toContain('image#imageProps');
+        });
+      });
+
+      describe('named feature: subsuperscript', () => {
+        let xml;
+        beforeEach(() => {
+          xml = plugin.generateRTE({ name: './t', label: 'T', features: ['subsuperscript'] });
+        });
+
+        test('should generate subsuperscript plugin', () => {
+          const pluginsSection = xml.slice(xml.indexOf('<rtePlugins'), xml.indexOf('</rtePlugins>'));
+          expect(pluginsSection).toContain('<subsuperscript');
+        });
+
+        test('should add subsuperscript toolbar items to dialogFullScreen', () => {
+          expect(xml).toContain('subsuperscript#subscript');
+          expect(xml).toContain('subsuperscript#superscript');
+        });
+
+        test('should not add subsuperscript items when not in features', () => {
+          const noSS = plugin.generateRTE({ name: './t', label: 'T', features: ['bold'] });
+          expect(noSS).not.toContain('subsuperscript#subscript');
+        });
+      });
+
+      describe('named feature: misctools', () => {
+        let xml;
+        beforeEach(() => {
+          xml = plugin.generateRTE({ name: './t', label: 'T', features: ['misctools'] });
+        });
+
+        test('should generate misctools plugin without specialCharsConfig by default', () => {
+          expect(xml).toContain('<misctools');
+          expect(xml).not.toContain('<specialCharsConfig');
+        });
+
+        test('should add misctools#sourceedit to inline and fullscreen toolbars', () => {
+          expect(xml).toContain('misctools#sourceedit');
+        });
+
+        test('should not add misctools when not in features', () => {
+          const noMisc = plugin.generateRTE({ name: './t', label: 'T', features: ['bold'] });
+          expect(noMisc).not.toContain('<misctools');
+          expect(noMisc).not.toContain('misctools#sourceedit');
+        });
+      });
+
+      describe('named feature: tracklinks', () => {
+        test('should generate tracklinks plugin', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['tracklinks'] });
+          const pluginsSection = xml.slice(xml.indexOf('<rtePlugins'), xml.indexOf('</rtePlugins>'));
+          expect(pluginsSection).toContain('<tracklinks');
+        });
+
+        test('should not generate tracklinks when not in features', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['bold'] });
+          expect(xml).not.toContain('<tracklinks');
+        });
+      });
+
+      describe('named feature: styles', () => {
+        let xml;
+        beforeEach(() => {
+          xml = plugin.generateRTE({ name: './t', label: 'T', features: ['styles'] });
+        });
+
+        test('should generate styles plugin with cq:WidgetCollection', () => {
+          expect(xml).toContain('<styles');
+          expect(xml).toContain('jcr:primaryType="cq:WidgetCollection"');
+        });
+
+        test('should add #styles to inline and fullscreen toolbars', () => {
+          expect(xml).toContain('#styles');
+        });
+
+        test('should add styles popover to inline and fullscreen', () => {
+          expect(xml).toContain('ref="styles"');
+          expect(xml).toContain('items="styles:getStyles:styles-pulldown"');
+        });
+
+        test('should not generate styles when not in features', () => {
+          const noStyles = plugin.generateRTE({ name: './t', label: 'T', features: ['bold'] });
+          const pluginsSection = noStyles.slice(noStyles.indexOf('<rtePlugins'), noStyles.indexOf('</rtePlugins>'));
+          expect(pluginsSection).not.toContain('<styles');
+          expect(noStyles).not.toContain('#styles');
+        });
+      });
+
+      describe('rteStyles option', () => {
+        test('should populate styles collection with provided entries', () => {
+          const xml = plugin.generateRTE({
+            name: './t',
+            label: 'T',
+            features: ['styles'],
+            rteStyles: [
+              { cssName: 'outlined-text', text: 'Outlined Text' },
+              { cssName: 'semibold-text', text: 'Semibold' },
+            ],
+          });
+
+          expect(xml).toContain('cssName="outlined-text"');
+          expect(xml).toContain('text="Outlined Text"');
+          expect(xml).toContain('cssName="semibold-text"');
+          expect(xml).toContain('text="Semibold"');
+        });
+
+        test('should use name property as node name when provided', () => {
+          const xml = plugin.generateRTE({
+            name: './t',
+            label: 'T',
+            features: ['styles'],
+            rteStyles: [{ name: 'myStyle', cssName: 'my-class', text: 'My Style' }],
+          });
+
+          expect(xml).toContain('cssName="my-class"');
+          expect(xml).toContain('text="My Style"');
+        });
+
+        test('should generate empty collection when rteStyles is empty array', () => {
+          const xml = plugin.generateRTE({ name: './t', label: 'T', features: ['styles'], rteStyles: [] });
+          expect(xml).toContain('jcr:primaryType="cq:WidgetCollection"');
+          expect(xml).not.toContain('cssName=');
+        });
+
+        test('should ignore rteStyles when styles not in features', () => {
+          const xml = plugin.generateRTE({
+            name: './t',
+            label: 'T',
+            features: ['bold'],
+            rteStyles: [{ cssName: 'my-class', text: 'My Style' }],
+          });
+          expect(xml).not.toContain('cssName=');
+        });
       });
     });
 

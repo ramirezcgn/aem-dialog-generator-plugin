@@ -2204,12 +2204,16 @@ class AemDialogGeneratorPlugin {
       width,
       maxlength,
       features = ['*'],
+      rteStyles = [],
+      paraformats,
+      specialChars,
       ...otherProps
     } = field;
 
     const fieldName = name || './text';
     const nodeName = this.sanitizeNodeName(fieldName);
     const resourceType = this.getResourceType('rte');
+    const hasFeature = (f) => features.includes('*') || features.includes(f);
 
     let xml = this.buildNode(
       this.getIndentLevel(this.I.F),
@@ -2233,61 +2237,188 @@ class AemDialogGeneratorPlugin {
       { isBoolean: true }
     );
     xml = this.appendAdditionalProperties(xml, this.getIndentLevel(this.I.FA), otherProps, [
-      'type',
-      'features',
-      'height',
-      'width',
-      'maxlength',
-      'disabled',
-      'readOnly',
+      'type', 'features', 'rteStyles', 'paraformats', 'specialChars', 'height', 'width', 'maxlength', 'disabled', 'readOnly',
     ]);
 
     xml = this.openBlock(xml);
     xml += this.buildNode(this.getIndentLevel(this.I.FN), 'rtePlugins', {}, 'open');
 
-    if (features.includes('*')) {
-      xml += this.generateRTEDefaultPlugins();
-    } else {
-      for (const feature of features) {
-        xml += this.generateRTEPlugin(feature);
+    // format plugin: bold, italic, underline, strikethrough
+    const formatFeatures = ['bold', 'italic', 'underline', 'strikethrough'].filter(f => hasFeature(f));
+    if (formatFeatures.length > 0) {
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI), 'format', { features: formatFeatures.join(',') }, 'self');
+    }
+    if (hasFeature('justify') || hasFeature('justifyblock')) {
+      const justifyFeats = ['justifyleft', 'justifycenter', 'justifyright'];
+      if (hasFeature('justifyblock')) justifyFeats.push('justifyblock');
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI), 'justify', { features: justifyFeats.join(',') }, 'self');
+    }
+    if (hasFeature('links') || hasFeature('anchor')) {
+      const linkFeatures = hasFeature('anchor') ? 'modifylink,unlink,anchor' : 'modifylink,unlink';
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI), 'links', { features: linkFeatures }, 'self');
+    }
+    if (hasFeature('lists')) {
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI), 'lists', { features: '*' }, 'self');
+    }
+    const DEFAULT_SPECIAL_CHARS = null;
+    const activeSpecialChars = specialChars || DEFAULT_SPECIAL_CHARS;
+    if (hasFeature('misctools')) {
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI), 'misctools', { features: '*' }, activeSpecialChars ? 'open' : 'self');
+      if (activeSpecialChars) {
+        xml += this.buildNode(this.getIndentLevel(this.I.FNI) + 1, 'specialCharsConfig', {}, 'open');
+        xml += this.buildNode(this.getIndentLevel(this.I.FNI) + 2, 'chars', {}, 'open');
+        for (const char of activeSpecialChars) {
+          const charNodeName = `default_${char.name}`;
+          xml += this.buildNode(this.getIndentLevel(this.I.FNI) + 3, charNodeName, { entity: char.entity, name: char.name }, 'self');
+        }
+        xml += this.closeNodes([
+          [this.getIndentLevel(this.I.FNI) + 2, 'chars'],
+          [this.getIndentLevel(this.I.FNI) + 1, 'specialCharsConfig'],
+          [this.getIndentLevel(this.I.FNI), 'misctools'],
+        ]);
       }
+    }
+    // paraformat is always included; paraformats config customizes the format list
+    const DEFAULT_PARAFORMATS = [
+      { name: 'default_p', description: 'Paragraph', tag: 'p' },
+      { name: 'default_em', description: 'Highlight', tag: 'em' },
+      { name: 'default_h1', description: 'Heading 1', tag: 'h1' },
+      { name: 'default_h2', description: 'Heading 2', tag: 'h2' },
+      { name: 'default_h3', description: 'Heading 3', tag: 'h3' },
+      { name: 'default_h4', description: 'Heading 4', tag: 'h4' },
+      { name: 'default_h5', description: 'Heading 5', tag: 'h5' },
+      { name: 'default_h6', description: 'Heading 6', tag: 'h6' },
+      { name: 'default_blockquote', description: 'Quote', tag: 'blockquote' },
+      { name: 'default_pre', description: 'Preformatted', tag: 'pre' },
+    ];
+    const activeParaformats = paraformats || DEFAULT_PARAFORMATS;
+    xml += this.buildNode(this.getIndentLevel(this.I.FNI), 'paraformat', { features: '*' }, 'open');
+    xml += this.buildNode(this.getIndentLevel(this.I.FNI) + 1, 'formats', {}, 'open');
+    for (const fmt of activeParaformats) {
+      const fmtName = fmt.name || this.sanitizeNodeName(`${fmt.tag}_${fmt.description}`);
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI) + 2, fmtName, { description: fmt.description, tag: fmt.tag }, 'self');
+    }
+    xml += this.closeNodes([
+      [this.getIndentLevel(this.I.FNI) + 1, 'formats'],
+      [this.getIndentLevel(this.I.FNI), 'paraformat'],
+    ]);
+    if (hasFeature('table')) {
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI), 'table', { features: '*' }, 'open');
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI) + 1, 'hiddenHeaderConfig', {
+        hiddenHeaderClassName: 'cq-wcm-foundation-aria-visuallyhidden',
+        hiddenHeaderEditingCSS: 'cq-RichText-hiddenHeader--editing',
+      }, 'self');
+      xml += this.closeNode(this.getIndentLevel(this.I.FNI), 'table');
+    }
+    if (hasFeature('tracklinks')) {
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI), 'tracklinks', { features: '*' }, 'self');
+    }
+    if (hasFeature('subsuperscript')) {
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI), 'subsuperscript', { features: '*' }, 'self');
+    }
+    if (hasFeature('image')) {
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI), 'image', { features: '*' }, 'self');
+    }
+    if (hasFeature('undo')) {
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI), 'undo', { features: '*' }, 'self');
+    }
+    if (hasFeature('findreplace')) {
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI), 'findreplace', { features: '*' }, 'self');
+    }
+    if (hasFeature('styles')) {
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI), 'styles', { features: '*' }, 'open');
+      xml += this.buildNode(this.getIndentLevel(this.I.FNI) + 1, 'styles', { 'jcr:primaryType': 'cq:WidgetCollection' }, 'open');
+      for (const style of rteStyles) {
+        const styleName = this.sanitizeNodeName(style.name || style.cssName);
+        xml += this.buildNode(this.getIndentLevel(this.I.FNI) + 2, styleName, { cssName: style.cssName, text: style.text }, 'self');
+      }
+      xml += this.closeNodes([
+        [this.getIndentLevel(this.I.FNI) + 1, 'styles'],
+        [this.getIndentLevel(this.I.FNI), 'styles'],
+      ]);
     }
 
     xml += this.closeNode(this.getIndentLevel(this.I.FN), 'rtePlugins');
 
-    xml += this.buildNodes([
-      [this.getIndentLevel(this.I.FN), 'uiSettings'],
-      [this.getIndentLevel(this.I.FNI), 'cui'],
-      [
-        this.getIndentLevel(this.I.FNI) + 1,
-        'inline',
-        {
-          toolbar:
-            '[format#bold,format#italic,format#underline,#justify,#lists,links#modifylink,links#unlink,fullscreen#start]',
-          popovers:
-            '[justify#justifleft,justify#justifycenter,justify#justifyright,lists#unordered,lists#ordered,links#link]',
-        },
-      ],
-      [this.getIndentLevel(this.I.FNI) + 2, 'icons'],
-      [this.getIndentLevel(this.I.FNI) + 3, 'justify', {}, 'open'],
-      [this.getIndentLevel(this.I.FNI) + 4, 'justifyleft', { command: 'justifyleft' }, 'self'],
-      [this.getIndentLevel(this.I.FNI) + 4, 'justifycenter', { command: 'justifycenter' }, 'self'],
-      [this.getIndentLevel(this.I.FNI) + 4, 'justifyright', { command: 'justifyright' }, 'self'],
-    ]);
+    // Build inline toolbar
+    const inlineItems = [];
+    if (hasFeature('bold')) inlineItems.push('format#bold');
+    if (hasFeature('italic')) inlineItems.push('format#italic');
+    if (hasFeature('underline')) inlineItems.push('format#underline');
+    if (hasFeature('strikethrough')) inlineItems.push('format#strikethrough');
+    if (hasFeature('justify') || hasFeature('justifyblock')) inlineItems.push('#justify');
+    if (hasFeature('lists')) inlineItems.push('#lists');
+    if (hasFeature('links') || hasFeature('anchor')) inlineItems.push('links#modifylink', 'links#unlink');
+    if (hasFeature('anchor')) inlineItems.push('links#anchor');
+    inlineItems.push('#paraformat');
+    if (hasFeature('table')) inlineItems.push('table#createoredit');
+    if (hasFeature('styles')) inlineItems.push('#styles');
+    if (hasFeature('misctools')) inlineItems.push('misctools#sourceedit');
+    if (hasFeature('fullscreen')) inlineItems.push('fullscreen#start');
+    if (hasFeature('undo')) inlineItems.push('undo#undo', 'undo#redo');
+    if (hasFeature('findreplace')) inlineItems.push('findreplace#find');
 
-    xml += this.closeNode(this.getIndentLevel(this.I.FNI) + 3, 'justify');
+    // Build fullscreen toolbar
+    const fsItems = [];
+    if (hasFeature('bold')) fsItems.push('format#bold');
+    if (hasFeature('italic')) fsItems.push('format#italic');
+    if (hasFeature('underline')) fsItems.push('format#underline');
+    if (hasFeature('strikethrough')) fsItems.push('format#strikethrough');
+    if (hasFeature('justify') || hasFeature('justifyblock')) {
+      fsItems.push('justify#justifyleft', 'justify#justifycenter', 'justify#justifyright');
+      if (hasFeature('justifyblock')) fsItems.push('justify#justifyblock');
+    }
+    if (hasFeature('lists')) fsItems.push('lists#unordered', 'lists#ordered', 'lists#outdent', 'lists#indent');
+    if (hasFeature('links') || hasFeature('anchor')) fsItems.push('links#modifylink', 'links#unlink');
+    if (hasFeature('anchor')) fsItems.push('links#anchor');
+    if (hasFeature('table')) fsItems.push('table#createoredit');
+    fsItems.push('#paraformat');
+    if (hasFeature('image')) fsItems.push('image#imageProps', '#image');
+    if (hasFeature('subsuperscript')) fsItems.push('subsuperscript#subscript', 'subsuperscript#superscript');
+    if (hasFeature('styles')) fsItems.push('#styles');
+    if (hasFeature('misctools')) fsItems.push('misctools#sourceedit');
+    if (hasFeature('undo')) fsItems.push('undo#undo', 'undo#redo');
+    if (hasFeature('findreplace')) fsItems.push('findreplace#find', 'findreplace#replace');
 
-    xml += this.buildNodes([
-      [this.getIndentLevel(this.I.FNI) + 3, 'lists', {}, 'open'],
-      [this.getIndentLevel(this.I.FNI) + 4, 'unordered', { command: 'bullist' }, 'self'],
-      [this.getIndentLevel(this.I.FNI) + 4, 'ordered', { command: 'numlist' }, 'self'],
-    ]);
+    // Build inline popovers
+    const inlinePopovers = [];
+    if (hasFeature('justify') || hasFeature('justifyblock')) {
+      const justifyPopItems = ['justify#justifyleft', 'justify#justifycenter', 'justify#justifyright'];
+      if (hasFeature('justifyblock')) justifyPopItems.push('justify#justifyblock');
+      inlinePopovers.push({ ref: 'justify', items: `[${justifyPopItems.join(',')}]` });
+    }
+    if (hasFeature('lists')) inlinePopovers.push({ ref: 'lists', items: '[lists#unordered,lists#ordered,lists#outdent,lists#indent]' });
+    inlinePopovers.push({ ref: 'paraformat', items: 'paraformat:getFormats:paraformat-pulldown' });
+    if (hasFeature('styles')) inlinePopovers.push({ ref: 'styles', items: 'styles:getStyles:styles-pulldown' });
 
+    // Build fullscreen popovers
+    const fsPopovers = [{ ref: 'paraformat', items: 'paraformat:getFormats:paraformat-pulldown' }];
+    if (hasFeature('styles')) fsPopovers.push({ ref: 'styles', items: 'styles:getStyles:styles-pulldown' });
+
+    const TABLE_EDIT_TOOLBAR = '[table#insertcolumn-before,table#insertcolumn-after,table#removecolumn,-,table#insertrow-before,table#insertrow-after,table#removerow,-,table#mergecells-right,table#mergecells-down,table#mergecells,table#splitcell-horizontal,table#splitcell-vertical,-,table#selectrow,table#selectcolumn,-,table#ensureparagraph,-,table#modifytableandcell,table#removetable,-,undo#undo,undo#redo,-,table#exitTableEditing,-]';
+
+    const uiNI = this.getIndentLevel(this.I.FNI);
+    xml += this.buildNode(this.getIndentLevel(this.I.FN), 'uiSettings', {}, 'open');
+    xml += this.buildNode(uiNI, 'cui', {}, 'open');
+    xml += this.buildNode(uiNI + 1, 'inline', { toolbar: `[${inlineItems.join(',')}]` }, 'open');
+    xml += this.buildNode(uiNI + 2, 'popovers', {}, 'open');
+    for (const p of inlinePopovers) {
+      xml += this.buildNode(uiNI + 3, p.ref, { items: p.items, ref: p.ref }, 'self');
+    }
+    xml += this.closeNode(uiNI + 2, 'popovers');
+    xml += this.closeNode(uiNI + 1, 'inline');
+    xml += this.buildNode(uiNI + 1, 'dialogFullScreen', { toolbar: `[${fsItems.join(',')}]` }, 'open');
+    xml += this.buildNode(uiNI + 2, 'popovers', {}, 'open');
+    for (const p of fsPopovers) {
+      xml += this.buildNode(uiNI + 3, p.ref, { items: p.items, ref: p.ref }, 'self');
+    }
+    xml += this.closeNode(uiNI + 2, 'popovers');
+    xml += this.closeNode(uiNI + 1, 'dialogFullScreen');
+    if (hasFeature('table')) {
+      xml += this.buildNode(uiNI + 1, 'tableEditOptions', { toolbar: TABLE_EDIT_TOOLBAR }, 'self');
+    }
     xml += this.closeNodes([
-      [this.getIndentLevel(this.I.FNI) + 3, 'lists'],
-      [this.getIndentLevel(this.I.FNI) + 2, 'icons'],
-      [this.getIndentLevel(this.I.FNI) + 1, 'inline'],
-      [this.getIndentLevel(this.I.FNI), 'cui'],
+      [uiNI, 'cui'],
       [this.getIndentLevel(this.I.FN), 'uiSettings'],
       [this.getIndentLevel(this.I.F), nodeName],
     ]);
@@ -2324,45 +2455,9 @@ class AemDialogGeneratorPlugin {
   }
 
   generateRTEDefaultPlugins() {
-    let xml = this.buildNodes([
-      [this.getIndentLevel(this.I.FNI), 'format', { features: 'bold,italic,underline' }, 'self'],
-      [this.getIndentLevel(this.I.FNI), 'justify', { features: '*' }, 'self'],
-      [this.getIndentLevel(this.I.FNI), 'lists', { features: '*' }, 'self'],
-      [this.getIndentLevel(this.I.FNI), 'links', { features: 'modifylink,unlink' }, 'self'],
-      [this.getIndentLevel(this.I.FNI), 'subsuperscript', { features: '*' }, 'self'],
-      [this.getIndentLevel(this.I.FNI), 'paraformat', { features: '*' }, 'open'],
-      [this.getIndentLevel(this.I.FNI) + 1, 'formats', {}, 'open'],
-      [
-        this.getIndentLevel(this.I.FNI) + 2,
-        'default',
-        { description: 'Paragraph', tag: 'p' },
-        'self',
-      ],
-      [this.getIndentLevel(this.I.FNI) + 2, 'h1', { description: 'Heading 1', tag: 'h1' }, 'self'],
-      [this.getIndentLevel(this.I.FNI) + 2, 'h2', { description: 'Heading 2', tag: 'h2' }, 'self'],
-      [this.getIndentLevel(this.I.FNI) + 2, 'h3', { description: 'Heading 3', tag: 'h3' }, 'self'],
-    ]);
-    xml += this.closeNodes([
-      [this.getIndentLevel(this.I.FNI) + 1, 'formats'],
-      [this.getIndentLevel(this.I.FNI), 'paraformat'],
-    ]);
-    return xml;
-  }
-
-  generateRTEPlugin(feature) {
-    const plugins = {
-      bold: { node: 'format', attrs: { features: 'bold' } },
-      italic: { node: 'format', attrs: { features: 'italic' } },
-      underline: { node: 'format', attrs: { features: 'underline' } },
-      links: { node: 'links', attrs: { features: 'modifylink,unlink' } },
-      lists: { node: 'lists', attrs: { features: '*' } },
-      justify: { node: 'justify', attrs: { features: '*' } },
-    };
-
-    if (!plugins[feature]) return '';
-
-    const { node, attrs } = plugins[feature];
-    return this.buildNode(this.getIndentLevel(this.I.FNI), node, attrs, 'self');
+    // This method is kept for reference but generateRTE now handles all cases via hasFeature.
+    // Kept as a no-op to avoid breaking any direct callers in tests.
+    return '';
   }
 
   generateMultifield(field) {

@@ -1290,9 +1290,9 @@ Displays a group of radio buttons. Better than select when you have 2-4 options 
 **Properties:**
 
 | Property | Type | Description | Default |
-|----------|------|-------------|---------|  
-| `name` | String | Property name (required) | - |
-| `label` | String | Field label (required) | - |
+|----------|------|-------------|---------|
+| `name` | String | Property name | `"./text"` |
+| `label` | String | Field label | - |
 | `required` | Boolean | Make field mandatory | `false` |
 | `disabled` | Boolean | Disable the editor | `false` |
 | `readOnly` | Boolean | Make editor read-only | `false` |
@@ -1300,13 +1300,93 @@ Displays a group of radio buttons. Better than select when you have 2-4 options 
 | `width` | String | Editor width (CSS value) | - |
 | `maxlength` | Number | Maximum character count | - |
 | `useFixedInlineToolbar` | Boolean | Use fixed inline toolbar | `false` |
-| `features` | Array | Enabled RTE features | `['*']` |
+| `features` | Array | Enabled RTE features (see below) | `["*"]` |
+| `paraformats` | Array | Custom paragraph format list (see below) | 10 defaults |
+| `rteStyles` | Array | Style entries for the `styles` plugin (see below) | `[]` |
+| `specialChars` | Array | Custom special characters for `misctools` (see below) | none |
 
-Use `"features": ["*"]` for all features, or specify individual ones:
-- `"bold"`, `"italic"`, `"underline"` - Text formatting
-- `"links"` - Hyperlinks
-- `"lists"` - Ordered and unordered lists
-- `"justify"` - Text alignment
+**`features` values:**
+
+Use `"features": ["*"]` to enable all plugins, or list specific ones:
+
+| Feature | Plugin | Description |
+|---------|--------|-------------|
+| `"bold"` | format | Bold text |
+| `"italic"` | format | Italic text |
+| `"underline"` | format | Underline text |
+| `"strikethrough"` | format | Strikethrough text |
+| `"justify"` | justify | Left / center / right alignment |
+| `"justifyblock"` | justify | Full (block) justification — also enables left/center/right |
+| `"links"` | links | Insert and modify hyperlinks |
+| `"anchor"` | links | Named anchors — also enables links |
+| `"lists"` | lists | Ordered and unordered lists |
+| `"misctools"` | misctools | Source edit; optionally special characters |
+| `"table"` | table | Insert and edit tables |
+| `"tracklinks"` | tracklinks | Track link clicks |
+| `"subsuperscript"` | subsuperscript | Subscript and superscript |
+| `"image"` | image | Inline images |
+| `"undo"` | undo | Undo / redo |
+| `"findreplace"` | findreplace | Find and replace |
+| `"styles"` | styles | CSS style picker (requires `rteStyles`) |
+| `"fullscreen"` | — | Adds fullscreen toggle button to inline toolbar |
+
+The `paraformat` plugin (paragraph formats) is always included regardless of the `features` array.
+
+**`paraformats` option:**
+
+Overrides the default paragraph format list. Each entry needs `tag` and `description`; `name` (node name) is optional and auto-generated when omitted.
+
+```jsonc
+{
+  "type": "rte",
+  "name": "./text",
+  "label": "Content",
+  "paraformats": [
+    { "tag": "p", "description": "Paragraph" },
+    { "tag": "h2", "description": "Heading 2" },
+    { "tag": "h3", "description": "Heading 3" },
+    { "tag": "blockquote", "description": "Quote" }
+  ]
+}
+```
+
+Default paragraph formats (used when `paraformats` is omitted): `p`, `em`, `h1`–`h6`, `blockquote`, `pre`.
+
+**`rteStyles` option:**
+
+Populates the `styles` plugin with named CSS classes. Requires `"styles"` in `features`.
+
+```jsonc
+{
+  "type": "rte",
+  "name": "./text",
+  "label": "Content",
+  "features": ["bold", "italic", "styles"],
+  "rteStyles": [
+    { "cssName": "highlight", "text": "Highlight" },
+    { "cssName": "intro-text", "text": "Intro Text" }
+  ]
+}
+```
+
+**`specialChars` option:**
+
+Adds a special characters picker to the `misctools` plugin. Without this option, `misctools` only provides the source-edit button. Requires `"misctools"` in `features`.
+
+```jsonc
+{
+  "type": "rte",
+  "name": "./text",
+  "label": "Content",
+  "features": ["bold", "italic", "misctools"],
+  "specialChars": [
+    { "name": "copyright", "entity": "&copy;" },
+    { "name": "euro", "entity": "&euro;" },
+    { "name": "registered", "entity": "&reg;" },
+    { "name": "trademark", "entity": "&trade;" }
+  ]
+}
+```
 
 ## Dynamic Show/Hide
 
