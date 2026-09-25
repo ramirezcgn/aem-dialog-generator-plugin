@@ -146,9 +146,15 @@ describe('AemDialogGeneratorPlugin', () => {
         );
       });
 
-      test('should format number values', () => {
+      test('should format integer values as Long', () => {
         expect(plugin.generateAttributeValue('count', 42)).toBe(
           'count="{Long}42"'
+        );
+      });
+
+      test('should format decimal values as Double', () => {
+        expect(plugin.generateAttributeValue('ratio', 3.14)).toBe(
+          'ratio="{Double}3.14"'
         );
       });
 

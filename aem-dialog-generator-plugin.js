@@ -1110,7 +1110,8 @@ class AemDialogGeneratorPlugin {
     if (typeof value === 'boolean') {
       return `${key}="{Boolean}${value}"`;
     } else if (typeof value === 'number') {
-      return `${key}="{Long}${value}"`;
+      const type = Number.isInteger(value) ? 'Long' : 'Double';
+      return `${key}="{${type}}${value}"`;
     } else if (Array.isArray(value)) {
       return `${key}="[${value.join(',')}]"`;
     } else {
